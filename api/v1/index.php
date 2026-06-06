@@ -206,6 +206,11 @@ try {
             handleCleanup($method, $id, $action, $input);
             break;
 
+        case 'ingest':
+            require_once 'endpoints/ingest.php';
+            handleIngest($method, $id, $action, $input);
+            break;
+
         case 'user-groups':
             require_once 'endpoints/user_groups.php';
             handleUserGroups($method, $id, $action, $input);
@@ -238,7 +243,8 @@ try {
                     'settings' => '/settings',
                     'cleanup' => '/cleanup',
                     'user-groups' => '/user-groups',
-                    'user-permissions' => '/user-permissions'
+                    'user-permissions' => '/user-permissions',
+                    'ingest'           => '/ingest/upload | /ingest/file/{ref_id} | /ingest/stats'
                 ]
             ], 'Welcome to E-File System API v1.0');
             break;

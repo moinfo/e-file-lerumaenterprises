@@ -11,6 +11,7 @@ require_once ("./models/ArchiveDocumentFolder.php");
 require_once ("./models/ArchiveDocumentSubFolder.php");
 require_once ("./models/DocumentType.php");
 require_once ("./models/Utility.php");
+require_once ("./models/ConnectedSystem.php");
 require_once ("./models/Router.php");
 require_once ("./models/Menu.php");
 include './xcrud/xcrud.php';

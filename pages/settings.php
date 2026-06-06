@@ -13,6 +13,7 @@ $settings = [
     ['name' => "uploads", 'title' => 'Uploads', 'link' => '.?p=settings_uploads', 'descriptions' => 'Uploads all Documents, modifications, and Organizations', 'icon' => 'bi-upload'],
     ['name' => "edited_files", 'title' => 'Edited Files', 'link' => '.?p=settings_edited_files', 'descriptions' => 'Cruds For All Files Edited by a User', 'icon' => 'bi-pencil-square'],
     ['name' => "user_groups_and_access", 'title' => 'User Group & Access', 'link' => '.?p=settings.users', 'descriptions' => 'Assign User to a group and set access', 'icon' => 'bi-shield-lock'],
+    ['name' => "connected_systems", 'title' => 'Connected Systems', 'link' => '.?p=settings.connected_systems', 'descriptions' => 'Register external systems to receive documents via API integration', 'icon' => 'bi-plug'],
 ];
 ?>
 
