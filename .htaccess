@@ -1,0 +1,45 @@
+# E-File Root .htaccess
+# Production server configuration
+
+# RewriteEngine On
+
+# Exclude API directory from rewriting
+# RewriteCond %{REQUEST_URI} ^/api/
+# RewriteRule ^ - [L]
+
+# Your existing rewrite rules (if any) go below
+# Add any existing rules from your current .htaccess here
+
+
+# New 
+# E-File Root .htaccess
+# Production server configuration
+
+# Allow following symlinks (for allfiles directory)
+# Use SymLinksIfOwnerMatch for stricter security
+Options +SymLinksIfOwnerMatch -Indexes
+
+RewriteEngine On
+
+# Exclude API directory from rewriting
+RewriteCond %{REQUEST_URI} ^/api/
+RewriteRule ^ - [L]
+
+# Exclude allfiles directory from rewriting
+RewriteCond %{REQUEST_URI} ^/allfiles/
+RewriteRule ^ - [L]
+
+# Your existing rewrite rules (if any) go below
+# Add any existing rules from your current .htaccess here
+
+# Security headers
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+    Header set X-Frame-Options "SAMEORIGIN"
+</IfModule>
+
+# Deny access to sensitive files
+<FilesMatch "(^\.htaccess|^\.env|\.sql|\.log|config\.php|secrets.*\.php)$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>

@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>E-File API Tester</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f0f0f 0%, #1a1a1a 50%, #1f1f1f 100%);
+            color: #ffffff;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            color: #f08c00;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .test-section {
+            background: rgba(42, 42, 42, 0.95);
+            border: 1px solid rgba(240, 140, 0, 0.2);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .test-section h2 {
+            color: #f08c00;
+            margin-bottom: 15px;
+            font-size: 1.3rem;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #ffffff;
+            font-weight: 500;
+        }
+
+        input, textarea {
+            width: 100%;
+            padding: 10px;
+            background: rgba(26, 26, 26, 0.9);
+            border: 1px solid rgba(240, 140, 0, 0.2);
+            border-radius: 8px;
+            color: #f08c00;
+            font-size: 14px;
+        }
+
+        input:focus, textarea:focus {
+            outline: none;
+            border-color: #f08c00;
+            box-shadow: 0 0 0 2px rgba(240, 140, 0, 0.1);
+        }
+
+        button {
+            background: linear-gradient(135deg, #f08c00 0%, #d87e00 100%);
+            border: none;
+            color: #ffffff;
+            padding: 12px 24px;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(240, 140, 0, 0.3);
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(240, 140, 0, 0.5);
+        }
+
+        .response {
+            margin-top: 15px;
+            padding: 15px;
+            background: rgba(15, 15, 15, 0.9);
+            border: 1px solid rgba(240, 140, 0, 0.2);
+            border-radius: 8px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .response pre {
+            color: #f08c00;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-size: 12px;
+        }
+
+        .success {
+            border-color: #4caf50;
+        }
+
+        .error {
+            border-color: #f44336;
+        }
+
+        .info {
+            background: rgba(240, 140, 0, 0.1);
+            border: 1px solid rgba(240, 140, 0, 0.3);
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .token-display {
+            background: rgba(15, 15, 15, 0.9);
+            padding: 10px;
+            border-radius: 8px;
+            word-break: break-all;
+            font-family: monospace;
+            color: #4caf50;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 E-File API Tester</h1>
+
+        <div class="info">
+            <strong>Base URL:</strong> <span id="baseUrl">http://localhost/e-file/api/v1/</span><br>
+            <strong>Current Token:</strong> <span id="currentToken" style="color: #f08c00;">Not logged in</span>
+        </div>
+
+        <!-- Login Section -->
+        <div class="test-section">
+            <h2>1. 🔐 Login</h2>
+            <div class="form-group">
+                <label>Username:</label>
+                <input type="text" id="username" value="admin" placeholder="Enter username">
+            </div>
+            <div class="form-group">
+                <label>Password:</label>
+                <input type="password" id="password" value="" placeholder="Enter password">
+            </div>
+            <button onclick="testLogin()">Login</button>
+            <div id="loginResponse" class="response" style="display: none;"></div>
+        </div>
+
+        <!-- Get Folders -->
+        <div class="test-section">
+            <h2>2. 📁 Get All Folders</h2>
+            <button onclick="testGetFolders()">Get Folders</button>
+            <div id="foldersResponse" class="response" style="display: none;"></div>
+        </div>
+
+        <!-- Get Files -->
+        <div class="test-section">
+            <h2>3. 📄 Get All Files</h2>
+            <div class="form-group">
+                <label>Limit:</label>
+                <input type="number" id="filesLimit" value="10" placeholder="Number of files">
+            </div>
+            <button onclick="testGetFiles()">Get Files</button>
+            <div id="filesResponse" class="response" style="display: none;"></div>
+        </div>
+
+        <!-- Search -->
+        <div class="test-section">
+            <h2>4. 🔍 Search</h2>
+            <div class="form-group">
+                <label>Search Query:</label>
+                <input type="text" id="searchQuery" placeholder="Enter search term">
+            </div>
+            <button onclick="testSearch()">Search</button>
+            <div id="searchResponse" class="response" style="display: none;"></div>
+        </div>
+
+        <!-- Statistics -->
+        <div class="test-section">
+            <h2>5. 📊 Dashboard Statistics</h2>
+            <button onclick="testStats()">Get Statistics</button>
+            <div id="statsResponse" class="response" style="display: none;"></div>
+        </div>
+
+        <!-- Custom Endpoint -->
+        <div class="test-section">
+            <h2>6. 🎯 Custom Request</h2>
+            <div class="form-group">
+                <label>Endpoint (relative to base URL):</label>
+                <input type="text" id="customEndpoint" placeholder="e.g., folders or document-types" value="folders">
+            </div>
+            <div class="form-group">
+                <label>Method:</label>
+                <select id="customMethod" style="width: 100%; padding: 10px; background: rgba(26, 26, 26, 0.9); border: 1px solid rgba(240, 140, 0, 0.2); border-radius: 8px; color: #f08c00;">
+                    <option>GET</option>
+                    <option>POST</option>
+                    <option>PUT</option>
+                    <option>DELETE</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Request Body (JSON, for POST/PUT):</label>
+                <textarea id="customBody" rows="4" placeholder='{"key": "value"}'></textarea>
+            </div>
+            <button onclick="testCustomRequest()">Send Request</button>
+            <div id="customResponse" class="response" style="display: none;"></div>
+        </div>
+    </div>
+
+    <script>
+        const BASE_URL = 'http://localhost/e-file/api/v1/';
+        let authToken = '';
+
+        async function testLogin() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+
+            try {
+                const response = await fetch(BASE_URL + 'auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ username, password })
+                });
+
+                const data = await response.json();
+                displayResponse('loginResponse', data, response.ok);
+
+                if (data.success && data.data.token) {
+                    authToken = data.data.token;
+                    document.getElementById('currentToken').textContent = authToken.substring(0, 30) + '...';
+                    document.getElementById('currentToken').style.color = '#4caf50';
+                }
+            } catch (error) {
+                displayResponse('loginResponse', { error: error.message }, false);
+            }
+        }
+
+        async function testGetFolders() {
+            if (!authToken) {
+                alert('Please login first!');
+                return;
+            }
+
+            try {
+                const response = await fetch(BASE_URL + 'folders', {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+
+                const data = await response.json();
+                displayResponse('foldersResponse', data, response.ok);
+            } catch (error) {
+                displayResponse('foldersResponse', { error: error.message }, false);
+            }
+        }
+
+        async function testGetFiles() {
+            if (!authToken) {
+                alert('Please login first!');
+                return;
+            }
+
+            const limit = document.getElementById('filesLimit').value;
+
+            try {
+                const response = await fetch(BASE_URL + `files?limit=${limit}`, {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+
+                const data = await response.json();
+                displayResponse('filesResponse', data, response.ok);
+            } catch (error) {
+                displayResponse('filesResponse', { error: error.message }, false);
+            }
+        }
+
+        async function testSearch() {
+            if (!authToken) {
+                alert('Please login first!');
+                return;
+            }
+
+            const query = document.getElementById('searchQuery').value;
+
+            if (!query) {
+                alert('Please enter a search query!');
+                return;
+            }
+
+            try {
+                const response = await fetch(BASE_URL + `search?q=${encodeURIComponent(query)}`, {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+
+                const data = await response.json();
+                displayResponse('searchResponse', data, response.ok);
+            } catch (error) {
+                displayResponse('searchResponse', { error: error.message }, false);
+            }
+        }
+
+        async function testStats() {
+            if (!authToken) {
+                alert('Please login first!');
+                return;
+            }
+
+            try {
+                const response = await fetch(BASE_URL + 'stats?action=dashboard', {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+
+                const data = await response.json();
+                displayResponse('statsResponse', data, response.ok);
+            } catch (error) {
+                displayResponse('statsResponse', { error: error.message }, false);
+            }
+        }
+
+        async function testCustomRequest() {
+            if (!authToken) {
+                alert('Please login first!');
+                return;
+            }
+
+            const endpoint = document.getElementById('customEndpoint').value;
+            const method = document.getElementById('customMethod').value;
+            const body = document.getElementById('customBody').value;
+
+            try {
+                const options = {
+                    method: method,
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                };
+
+                if ((method === 'POST' || method === 'PUT') && body) {
+                    options.body = body;
+                }
+
+                const response = await fetch(BASE_URL + endpoint, options);
+                const data = await response.json();
+                displayResponse('customResponse', data, response.ok);
+            } catch (error) {
+                displayResponse('customResponse', { error: error.message }, false);
+            }
+        }
+
+        function displayResponse(elementId, data, success) {
+            const element = document.getElementById(elementId);
+            element.style.display = 'block';
+            element.className = 'response ' + (success ? 'success' : 'error');
+            element.innerHTML = '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+        }
+    </script>
+</body>
+</html>

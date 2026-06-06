@@ -1,0 +1,31 @@
+# ── Dependencies ──────────────────────────────
+/node_modules/
+
+# ── Secrets (real secrets live OUTSIDE the web root — NEVER commit) ──
+efile_secrets.php
+*secrets*.php
+!efile_secrets.example.php
+.env
+.env.*
+
+# ── Database dumps & real data ────────────────
+*.sql
+
+# ── Logs ──────────────────────────────────────
+*.log
+error_log
+/logs/
+
+# ── Backups / quarantined files (incl. disabled config holding the prod password) ──
+/backups/
+
+# ── Archives / OS cruft ───────────────────────
+*.zip
+.well-known.zip
+__MACOSX/
+.DS_Store
+Thumbs.db
+
+# ── Local-only / scratch ──────────────────────
+__preview_*.php
+*.local.php

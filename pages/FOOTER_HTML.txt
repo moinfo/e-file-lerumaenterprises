@@ -1,0 +1,18 @@
+
+<footer class="footer">
+    <div class="footer-left">
+        <span>Version 3.0</span>
+    </div>
+    <div class="footer-center">
+        <span>&copy; <?php echo date('Y'); ?> File Bridge System. All rights reserved.</span><br>
+        <span>Powered By <a href="https://moinfo.co.tz" target="_blank">MoinfoTech Company Limited</a></span>
+        <div class="footer-icons">
+            <a href="#" title="Documentation"><i class="fas fa-book"></i></a>
+            <a href="https://moinfo.co.tz" target="_blank" title="Support"><i class="fas fa-headset"></i></a>
+            <a href="#" title="Settings"><i class="fas fa-cog"></i></a>
+        </div>
+    </div>
+    <div class="footer-right">
+        <a href="#">Terms of Service</a> | <a href="#">Privacy Policy</a>
+    </div>
+</footer>
