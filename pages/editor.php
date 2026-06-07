@@ -371,18 +371,26 @@ $document_types = Utility::query("SELECT dt.* FROM config_folder_access_rights c
                     if (lower.endsWith('.pdf')) {
                         PDFObject.embed(file_path, "#pdf-loader");
                     } else if (/\.(jpe?g|png|gif|webp|bmp)$/.test(lower)) {
-                        $("#pdf-loader").html(
-                            '<img src="' + file_path + '" alt="' + (name || 'document') + '" ' +
-                            'style="max-width:100%;max-height:100%;object-fit:contain;display:block;margin:auto;">'
-                        );
+                        // Build with jQuery .attr()/.css() so DB-sourced values
+                        // (name, url) are set as attributes, never parsed as HTML.
+                        var $img = $('<img>')
+                            .attr({ src: file_path, alt: name || 'document' })
+                            .css({
+                                'max-width': '100%', 'max-height': '100%',
+                                'object-fit': 'contain', display: 'block', margin: 'auto'
+                            });
+                        $("#pdf-loader").empty().append($img);
                     } else {
                         // Unknown/binary type — offer a direct open/download link.
-                        $("#pdf-loader").html(
-                            '<div class="loader-icon" style="text-align:center;">' +
-                            'Preview not available for this file type.<br>' +
-                            '<a href="' + file_path + '" target="_blank" rel="noopener" ' +
-                            'style="color:#f5a623;text-decoration:underline;">Open / download file</a></div>'
-                        );
+                        var $link = $('<a>')
+                            .attr({ href: file_path, target: '_blank', rel: 'noopener' })
+                            .css({ color: '#f5a623', 'text-decoration': 'underline' })
+                            .text('Open / download file');
+                        var $msg = $('<div>')
+                            .addClass('loader-icon')
+                            .css('text-align', 'center')
+                            .append('Preview not available for this file type.', $('<br>'), $link);
+                        $("#pdf-loader").empty().append($msg);
                     }
 
                 } else {
