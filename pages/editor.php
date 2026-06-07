@@ -343,31 +343,46 @@ $document_types = Utility::query("SELECT dt.* FROM config_folder_access_rights c
                     // Use serve_file.php to serve files from outside web root
                     var file_path = "<?php echo BASE_URL; ?>serve_file.php?file="+encodeURIComponent(url);
                     console.log(file_path);
-                    if(url.toLowerCase().endsWith('.pdf')) {
+                    // Populate the metadata fields for every file type (not just PDFs),
+                    // so images and other documents are editable too.
+                    $("#input-id").val(id);
+                    $("#file-id").val(id);
+                    $("#input-name").val(name);
+                    $("#input-document_type").val(document_type);
+                    $("#input-year").val(year);
+                    $("#input-description").val(description);
+                    $("#input-number").val(number);
+                    $("#input-payee_name").val(payee_name);
+                    $("#input-sub_folder_id").val(sub_folder_id).trigger('change');
+                    $("#input-document_date").val(document_date);
+                    $("#input-cheque_number").val(cheque_number);
+                    $("#input-completed").prop("checked", '');
+                    $("#input-duplicate").prop("checked", (duplicate == '1' ? true: false));
+                    $('#input-year, #input-document_type').select2().trigger('change');
+                    $('#input-document_date').datepicker('destroy').datepicker({
+                        format: 'yyyy/mm/dd',
+                        changeYear: true,
+                        autoclose: true,
+                        defaultViewDate: {year: year}
+                    });
+
+                    // Render the document preview based on file type.
+                    var lower = (url || '').toLowerCase();
+                    if (lower.endsWith('.pdf')) {
                         PDFObject.embed(file_path, "#pdf-loader");
-                        $("#input-id").val(id);
-                        $("#file-id").val(id);
-                        $("#input-name").val(name);
-                        $("#input-document_type").val(document_type);
-                        $("#input-year").val(year);
-                        $("#input-description").val(description);
-                        $("#input-number").val(number);
-                        $("#input-payee_name").val(payee_name);
-                        $("#input-sub_folder_id").val(sub_folder_id).trigger('change');
-                        $("#input-document_date").val(document_date);
-                        $("#input-cheque_number").val(cheque_number);
-                        $("#input-completed").prop("checked", '');
-                        $("#input-duplicate").prop("checked", (duplicate == '1' ? true: false));
-                        $('#input-year, #input-document_type').select2().trigger('change');
-                        $('#input-document_date').datepicker('destroy').datepicker({
-                            format: 'yyyy/mm/dd',
-                            changeYear: true,
-                            autoclose: true,
-                            defaultViewDate: {year: year}
-                        })
+                    } else if (/\.(jpe?g|png|gif|webp|bmp)$/.test(lower)) {
+                        $("#pdf-loader").html(
+                            '<img src="' + file_path + '" alt="' + (name || 'document') + '" ' +
+                            'style="max-width:100%;max-height:100%;object-fit:contain;display:block;margin:auto;">'
+                        );
                     } else {
-                        $("#pdf-loader").html("<div class='loader-icon'>Invalid Response!</div>");
-                        $("#input-description").html("");
+                        // Unknown/binary type — offer a direct open/download link.
+                        $("#pdf-loader").html(
+                            '<div class="loader-icon" style="text-align:center;">' +
+                            'Preview not available for this file type.<br>' +
+                            '<a href="' + file_path + '" target="_blank" rel="noopener" ' +
+                            'style="color:#f5a623;text-decoration:underline;">Open / download file</a></div>'
+                        );
                     }
 
                 } else {
