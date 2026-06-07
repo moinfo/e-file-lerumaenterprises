@@ -142,8 +142,8 @@ function handleFileUpload($db, $user) {
         ApiResponse::error('File too large. Maximum size: 50MB', 400);
     }
 
-    // Upload directory - save to archives directory
-    $uploadDir = dirname(dirname(dirname(dirname(__DIR__)))) . '/allfiles/pf-archives/';
+    // Upload directory — use FILES_PATH constant for reliable absolute path
+    $uploadDir = rtrim(FILES_PATH, '/') . '/pf-archives/';
     if (!is_dir($uploadDir)) {
         mkdir($uploadDir, 0755, true);
     }
@@ -184,8 +184,8 @@ function handleFileUpload($db, $user) {
     $uploadId = $db->getLastInsertId();
 
     // Also insert into archives table so file is immediately viewable
-    // Use relative path for consistency with sync process
-    $relativePath = '../allfiles/pf-archives/' . $uniqueFileName;
+    // Store absolute path — resolved at upload time, not CWD-relative
+    $relativePath = $uploadPath;
 
     $insertArchiveQuery = "INSERT INTO archives
                           (name, path, hash, mime, size, year, created_at, completed, description)
@@ -231,11 +231,20 @@ function processSynchronization($db, $user, $input) {
         ApiResponse::error('Invalid password', 401);
     }
 
-    // Get file path from config
-    $filePath = '../allfiles/pf-archives/';
+    // Use FILES_PATH constant for reliable absolute path resolution
+    $filePath = rtrim(FILES_PATH, '/') . '/pf-archives/';
+
+    // Legacy fallback: older deployments may have stored files relative to the CWD
+    // which resolved to inside the site root rather than FILES_PATH.
+    if (!is_dir($filePath)) {
+        $legacy = dirname(dirname(dirname(dirname(__DIR__)))) . '/allfiles/pf-archives/';
+        if (is_dir($legacy)) {
+            $filePath = $legacy;
+        }
+    }
 
     if (!is_dir($filePath)) {
-        ApiResponse::error('Archive directory not found', 404);
+        ApiResponse::error('Archive directory not found: ' . $filePath, 404);
     }
 
     // Get existing file hashes
@@ -288,9 +297,12 @@ function processSynchronization($db, $user, $input) {
                            (name, path, hash, mime, size, year, created_at, completed)
                            VALUES (?, ?, ?, ?, ?, ?, NOW(), 0)";
 
+            // Compute absolute path for reliable future resolution
+            $absPath = realpath($fullPath) ?: $fullPath;
+
             $db->query($insertQuery, 'INSERT', 'ROW', [
                 $fileName,
-                $fullPath,
+                $absPath,
                 $hash,
                 $mime,
                 $size,

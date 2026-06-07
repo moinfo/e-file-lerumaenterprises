@@ -1,11 +1,20 @@
 <?php
 /**
  * Secure File Server
- * Serves files from outside the web root
+ * Serves files from outside the web root (or via symlink on restricted hosts).
+ *
+ * NOTE: realpath() is intentionally NOT used for security checks here.
+ * On cPanel with open_basedir, allfiles/ is a symlink whose canonical path
+ * falls outside the basedir — realpath() returns false even for accessible files.
+ * We use string-normalized paths + file_exists() instead.
  */
+
+// Buffer any output produced while loading config/secrets (e.g. a stray BOM or
+// blank line in efile_secrets.php). We discard it before sending headers so the
+// binary file stream and its Content-Type are never corrupted by leading bytes.
+ob_start();
 require_once('./config.php');
 
-// Get the requested file path
 $requestedPath = isset($_GET['file']) ? urldecode($_GET['file']) : '';
 
 if (empty($requestedPath)) {
@@ -13,44 +22,91 @@ if (empty($requestedPath)) {
     die('No file specified');
 }
 
-// Use FILES_PATH from config
-$baseDir = FILES_PATH;
+$baseDir  = FILES_PATH;
+$siteRoot = rtrim(__DIR__, '/');
 
-// Strip leading slashes/backslashes so callers cannot supply an absolute path,
-// then remove any traversal sequences. All paths are treated as relative to FILES_PATH.
-$requestedPath = ltrim($requestedPath, '/\\');
-$requestedPath = str_replace(['../', '..\\'  ], '', $requestedPath);
-
-// Remove the "allfiles/" prefix that web-uploaded files include in their stored path
-// (FILES_PATH already points to the allfiles directory).
-$cleanPath = str_replace('allfiles/', '', $requestedPath);
-$filePath  = rtrim($baseDir, '/') . '/' . ltrim($cleanPath, '/');
-
-// Security check: the resolved path must be strictly inside FILES_PATH.
-// Use a trailing separator to prevent the "/allfiles-other/" bypass that
-// a plain strpos/str_starts_with without the separator would allow.
-$realPath    = realpath($filePath);
-$realBaseDir = realpath(rtrim($baseDir, '/')) . DIRECTORY_SEPARATOR;
-
-if ($realPath === false || strncmp($realPath, $realBaseDir, strlen($realBaseDir)) !== 0) {
-    http_response_code(403);
-    error_log("Security violation: attempted to access file outside allowed directory - $filePath");
-    die('Access denied');
+// Resolve .. / . without touching the filesystem (safe under open_basedir).
+function _normalizePath(string $path): string {
+    $parts = [];
+    foreach (explode('/', str_replace('\\', '/', $path)) as $p) {
+        if ($p === '..' && !empty($parts)) { array_pop($parts); }
+        elseif ($p !== '.' && $p !== '')   { $parts[] = $p; }
+    }
+    return '/' . implode('/', $parts);
 }
 
-// Check if file exists
-if (!file_exists($realPath) || !is_readable($realPath)) {
+// Allowed base directories — literal strings, NOT filtered by is_dir().
+// open_basedir blocks is_dir() on the directory itself (the path is shorter than
+// the basedir prefix entry), but file_exists() on files WITHIN the dir works fine.
+// Security is enforced by $withinAllowed (string prefix + '/' guard) + file_exists().
+$allowedBases = [
+    rtrim($baseDir, '/'),        // /home/lerumaen/allfiles
+    $siteRoot . '/allfiles',     // /home/lerumaen/e-file.../allfiles (legacy / symlink)
+];
+
+// Check whether a normalized absolute path is inside any allowed base.
+$withinAllowed = function (string $p) use ($allowedBases): bool {
+    foreach ($allowedBases as $base) {
+        if (strncmp($p, $base . '/', strlen($base) + 1) === 0) return true;
+    }
+    return false;
+};
+
+// ── Build candidate paths (all strategies) then pick the first that exists ───
+//
+// Stored paths can be:
+//   /home/lerumaen/allfiles/pf-archives/file.pdf  (absolute — ingest API)
+//   ../allfiles/pf-archives/file.pdf              (relative — old sync)
+//   pf-archives/file.pdf                          (relative to FILES_PATH)
+
+$candidates = [];
+
+if ($requestedPath[0] === '/') {
+    $candidates[] = _normalizePath($requestedPath);
+} else {
+    $req = ltrim($requestedPath, '/\\');
+
+    // Candidate 1: relative to site root
+    //   ../allfiles/pf-archives/f → /home/lerumaen/allfiles/pf-archives/f
+    $candidates[] = _normalizePath($siteRoot . '/' . $req);
+
+    // Candidate 2: ../allfiles/ → allfiles/ within the site root
+    //   handles old deployments where CWD was pages/ subdirectory
+    if (strpos($req, '../allfiles/') !== false) {
+        $req2        = str_replace('../allfiles/', 'allfiles/', $req);
+        $candidates[] = _normalizePath($siteRoot . '/' . $req2);
+    }
+
+    // Candidate 3: strip traversal + allfiles/ prefix, resolve against FILES_PATH
+    $stripped    = preg_replace('#(\.\.[\\/])+#', '', $req);
+    $stripped    = ltrim(preg_replace('#^allfiles[\\/]#i', '', $stripped), '/');
+    $candidates[] = rtrim($baseDir, '/') . '/' . $stripped;
+}
+
+// Pick the first candidate that is (a) within an allowed base AND (b) exists on disk
+$filePath = null;
+foreach ($candidates as $c) {
+    if ($withinAllowed($c) && file_exists($c) && is_readable($c)) {
+        $filePath = $c;
+        break;
+    }
+}
+
+// ── Security gate ────────────────────────────────────────────────────────────
+if ($filePath === null) {
+    $anyAllowed = array_filter($candidates, $withinAllowed);
+    if (empty($anyAllowed)) {
+        http_response_code(403);
+        error_log("serve_file: no candidate within allowed bases — tried: " . implode(', ', $candidates));
+        die('Access denied');
+    }
     http_response_code(404);
-    error_log("File not found: $realPath");
+    error_log("serve_file: file not found in any location — tried: " . implode(', ', $candidates));
     die('File not found');
 }
 
-// Get file info
-$fileSize = filesize($realPath);
-$fileName = basename($realPath);
-
-// Determine MIME type — extension map first (reliable on all hosts),
-// finfo as fallback for unlisted types.
+// ── MIME type ────────────────────────────────────────────────────────────────
+$fileName = basename($filePath);
 $extMap = [
     'pdf'  => 'application/pdf',
     'jpg'  => 'image/jpeg',
@@ -69,45 +125,45 @@ $ext      = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
 $mimeType = $extMap[$ext] ?? null;
 if (!$mimeType) {
     $finfo    = finfo_open(FILEINFO_MIME_TYPE);
-    $mimeType = finfo_file($finfo, $realPath) ?: 'application/octet-stream';
+    $mimeType = finfo_file($finfo, $filePath) ?: 'application/octet-stream';
     finfo_close($finfo);
 }
 
-// Set headers for file serving
+// ── Serve ────────────────────────────────────────────────────────────────────
+$fileSize = filesize($filePath);
+
+// Discard any buffered output (stray BOM/whitespace from includes) so the
+// response body is exactly the file bytes and the Content-Type sticks.
+while (ob_get_level() > 0) { ob_end_clean(); }
+
 header('Content-Type: ' . $mimeType);
 header('Content-Length: ' . $fileSize);
 header('Content-Disposition: inline; filename="' . $fileName . '"');
 header('Cache-Control: public, max-age=3600');
 header('Accept-Ranges: bytes');
 
-// Handle range requests for PDF streaming
 if (isset($_SERVER['HTTP_RANGE'])) {
-    $range = $_SERVER['HTTP_RANGE'];
-    $range = str_replace('bytes=', '', $range);
-    $range = explode('-', $range);
-    $start = intval($range[0]);
-    $end = isset($range[1]) && $range[1] ? intval($range[1]) : $fileSize - 1;
+    $range    = str_replace('bytes=', '', $_SERVER['HTTP_RANGE']);
+    $range    = explode('-', $range);
+    $start    = (int) $range[0];
+    $end      = isset($range[1]) && $range[1] !== '' ? (int) $range[1] : $fileSize - 1;
 
     header('HTTP/1.1 206 Partial Content');
     header('Content-Range: bytes ' . $start . '-' . $end . '/' . $fileSize);
     header('Content-Length: ' . ($end - $start + 1));
 
-    $fp = fopen($realPath, 'rb');
-    fseek($fp, $start);
-    $buffer = 8192;
+    $fp        = fopen($filePath, 'rb');
     $bytesLeft = $end - $start + 1;
-
+    fseek($fp, $start);
     while ($bytesLeft > 0 && !feof($fp)) {
-        $read = ($bytesLeft > $buffer) ? $buffer : $bytesLeft;
+        $read       = min(8192, $bytesLeft);
         echo fread($fp, $read);
         $bytesLeft -= $read;
         flush();
     }
-
     fclose($fp);
 } else {
-    // Normal file serving
-    readfile($realPath);
+    readfile($filePath);
 }
 
 exit;

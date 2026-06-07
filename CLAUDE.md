@@ -56,8 +56,15 @@ To run locally:
    `router.dev.php` emulates the Apache rewrites (static files, `/api/v1/*` routing with a `chdir`
    into `api/v1/`, fallback to `index.php`). It is **dev-only — do not deploy it**.
 
-Uploaded files live **outside** the web root in `FILES_PATH` (`.../allfiles/`), served through
-PHP (`serve_file.php`, `file_viewer.php`, `api/v1/endpoints/file_serve.php`) rather than directly.
+Uploaded files live in `FILES_PATH` (`.../allfiles/`), served through PHP (`serve_file.php`,
+`file_viewer.php`, `api/v1/endpoints/file_serve.php`) rather than directly. On **production** the
+real location is `/home/lerumaen/public_html/allfiles/` — the app runs from the subfolder
+`/home/lerumaen/public_html/e-file.lerumaenterprises.co.tz/`, so `allfiles/` is its sibling, not
+under its own document root (the e-file subdomain can't reach it over HTTP). `serve_file.php` tries
+several path interpretations (`../allfiles/...` relative to site root, absolute, and `FILES_PATH`-
+relative) so legacy DB paths and new absolute paths both resolve. It uses string normalization +
+`file_exists()` — **not** `realpath()` — because cPanel's `open_basedir` makes `realpath()` return
+false for accessible files. Locally, `FILES_PATH` is `dirname(project)/allfiles/`.
 
 ## Architecture
 

@@ -115,7 +115,11 @@ function _ingestUpload(array $system, ConnectedSystem $csm): void {
 
     $safeName   = preg_replace('/[^a-zA-Z0-9._-]/', '_', basename($file['name']));
     $storedName = time() . '_' . $system['slug'] . '_' . bin2hex(random_bytes(6)) . '.' . $ext;
-    $destPath   = rtrim(FILES_PATH, '/') . DIRECTORY_SEPARATOR . 'pf-archives' . DIRECTORY_SEPARATOR . $storedName;
+    $archivesDir = rtrim(FILES_PATH, '/') . DIRECTORY_SEPARATOR . 'pf-archives';
+    if (!is_dir($archivesDir)) {
+        mkdir($archivesDir, 0755, true);
+    }
+    $destPath   = $archivesDir . DIRECTORY_SEPARATOR . $storedName;
 
     if (!move_uploaded_file($file['tmp_name'], $destPath)) {
         ApiResponse::error('Failed to save uploaded file. Check FILES_PATH permissions.', 500);

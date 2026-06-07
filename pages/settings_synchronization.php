@@ -122,8 +122,13 @@ if(isset($_POST['upload'], $_POST['password'])) {
         /**
          * Process new files
          */
-        $file_path = '../allfiles/pf-archives/';
-        $dir = '../allfiles/pf-archives/';
+        $file_path = rtrim(FILES_PATH, '/') . '/pf-archives/';
+        // Legacy fallback: if the canonical FILES_PATH location doesn't exist yet,
+        // check inside the site root (older deployments stored files there via CWD-relative path).
+        if (!is_dir($file_path)) {
+            $file_path = rtrim(dirname(__DIR__), '/') . '/allfiles/pf-archives/';
+        }
+        $dir = $file_path;
         $ignored = array('.', '..', '.DS_Store');
         $local_files = scandir($file_path);
         $files = array();

@@ -25,9 +25,8 @@ RewriteEngine On
 RewriteCond %{REQUEST_URI} ^/api/
 RewriteRule ^ - [L]
 
-# Exclude allfiles directory from rewriting
-RewriteCond %{REQUEST_URI} ^/allfiles/
-RewriteRule ^ - [L]
+# Block direct HTTP access to allfiles/ — files must go through serve_file.php
+RewriteRule ^allfiles/ - [F,L]
 
 # Your existing rewrite rules (if any) go below
 # Add any existing rules from your current .htaccess here
