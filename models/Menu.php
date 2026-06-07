@@ -12,10 +12,11 @@ class Menu extends Entity {
      */
     public static function printMenu($menu,$active) {
         $content = '';
-        $is_active = ($active == $menu['title']) ? 'active' : '';
+        parse_str(parse_url($menu['link'], PHP_URL_QUERY) ?? '', $qvars);
+        $page_key = $qvars['p'] ?? $menu['title'];
+        $is_active = ($active === $page_key) ? 'active' : '';
         if ($menu['parent_menu'] == 0) {
-            $content .= "<li class='nav-item {$is_active}'><a class='nav-link' href='{$menu['link']}'#'>{$menu['name']} <span class='sr-only'>()</span></a></li>";
-
+            $content .= "<li class='nav-item {$is_active}'><a class='nav-link' href='{$menu['link']}'>{$menu['name']} <span class='sr-only'>()</span></a></li>";
         }
         return $content;
     }

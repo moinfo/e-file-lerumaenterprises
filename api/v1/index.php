@@ -211,6 +211,11 @@ try {
             handleIngest($method, $id, $action, $input);
             break;
 
+        case 'serve':
+            require_once 'endpoints/serve.php';
+            handleServe($method, $id, $action, $input);
+            break;
+
         case 'user-groups':
             require_once 'endpoints/user_groups.php';
             handleUserGroups($method, $id, $action, $input);

@@ -79,35 +79,123 @@
 
         /* ----- Navbar ----- */
         .navbar {
-            background: rgba(11, 9, 7, 0.72) !important;
-            backdrop-filter: blur(16px) !important;
-            border-bottom: 1px solid var(--border-color) !important;
-            box-shadow: 0 12px 34px -16px rgba(0, 0, 0, 0.7) !important;
+            background: rgba(11, 9, 7, 0.86) !important;
+            backdrop-filter: blur(20px) saturate(1.4) !important;
+            border-bottom: 1px solid rgba(240, 140, 0, 0.12) !important;
+            box-shadow: 0 1px 0 rgba(240,140,0,0.07), 0 16px 40px -20px rgba(0,0,0,0.8) !important;
+            padding: 0 1.5rem !important;
+            min-height: 60px;
         }
-        .navbar-brand { display: inline-flex !important; align-items: center; gap: 0.7rem; }
+        /* Wordmark */
+        .navbar-brand {
+            display: inline-flex !important; align-items: center; gap: 0;
+            padding: 0 !important; margin-right: 2.5rem !important;
+            text-decoration: none !important;
+        }
         .navbar-brand .wordmark {
             font-family: var(--font-display);
-            font-weight: 800; font-size: 1.18rem; line-height: 1;
-            letter-spacing: -0.01em; color: #fff;
+            font-size: 1.22rem; font-weight: 800; line-height: 1;
+            letter-spacing: -0.02em; color: #fff;
         }
-        .navbar-brand .wordmark b { color: var(--primary-orange); font-weight: 800; }
+        .navbar-brand .wordmark b { color: var(--light-orange); }
+        /* Nav items */
         .navbar-nav .nav-link {
-            color: var(--text-muted) !important;
+            color: rgba(246,239,229,0.55) !important;
+            font-size: 0.82rem;
             font-weight: 600;
-            border-radius: 10px;
-            padding: 0.5rem 0.9rem !important;
-            transition: color 0.2s ease, background 0.2s ease;
+            letter-spacing: 0.01em;
+            border-radius: 8px;
+            padding: 0.45rem 0.85rem !important;
+            transition: color 0.18s, background 0.18s;
+            white-space: nowrap;
         }
-        .navbar-nav .nav-link:hover { color: #fff !important; background: rgba(240, 140, 0, 0.10); }
-        .navbar-nav .nav-link.active,
-        .navbar-nav .active > .nav-link,
+        .navbar-nav .nav-link:hover {
+            color: #fff !important;
+            background: rgba(240,140,0,0.09);
+        }
+        .navbar-nav .nav-item.active .nav-link,
         .navbar-nav li.active a {
-            color: #241400 !important;
-            background: linear-gradient(135deg, var(--light-orange), var(--dark-orange)) !important;
-            box-shadow: 0 8px 18px -8px rgba(240, 140, 0, 0.6);
+            color: #1a0d00 !important;
+            background: linear-gradient(135deg, var(--light-orange) 0%, var(--dark-orange) 100%) !important;
+            box-shadow: 0 4px 14px -6px rgba(240,140,0,0.55);
+            border-radius: 8px;
         }
-        .navbar-text a { color: var(--text-muted) !important; font-weight: 600; transition: color 0.2s ease; }
-        .navbar-text a:hover { color: var(--primary-orange) !important; }
+        /* Divider between nav links and profile */
+        .nav-divider {
+            width: 1px; height: 22px; margin: 0 1rem;
+            background: rgba(240,140,0,0.15);
+            align-self: center; flex-shrink: 0;
+        }
+        /* Profile dropdown */
+        .profile-dropdown .dropdown-toggle {
+            display: flex; align-items: center; gap: 0.55rem;
+            background: none; border: none; padding: 0;
+            cursor: pointer; text-decoration: none;
+        }
+        .profile-dropdown .dropdown-toggle::after { display: none; }
+        .profile-avatar {
+            width: 32px; height: 32px; border-radius: 50%;
+            background: linear-gradient(135deg, var(--light-orange), var(--dark-orange));
+            color: #1a0d00; font-weight: 800; font-size: 0.78rem;
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0; letter-spacing: 0;
+        }
+        .profile-name {
+            font-size: 0.82rem; font-weight: 600;
+            color: rgba(246,239,229,0.75);
+            max-width: 120px; overflow: hidden;
+            text-overflow: ellipsis; white-space: nowrap;
+        }
+        .profile-chevron {
+            color: rgba(246,239,229,0.35);
+            font-size: 0.65rem;
+            transition: transform 0.2s;
+        }
+        .profile-dropdown.show .profile-chevron { transform: rotate(180deg); }
+        /* Dropdown menu */
+        .profile-dropdown .dropdown-menu {
+            background: rgba(20, 16, 11, 0.97) !important;
+            border: 1px solid rgba(240,140,0,0.14) !important;
+            border-radius: 12px !important;
+            box-shadow: 0 20px 50px -12px rgba(0,0,0,0.85), 0 0 0 1px rgba(240,140,0,0.06) !important;
+            padding: 0.4rem !important;
+            min-width: 200px;
+            margin-top: 0.6rem !important;
+            right: 0; left: auto;
+        }
+        .profile-dropdown .dropdown-header {
+            padding: 0.7rem 0.9rem 0.6rem;
+            display: flex; align-items: center; gap: 0.6rem;
+        }
+        .profile-dropdown .dropdown-header .avatar-lg {
+            width: 38px; height: 38px; border-radius: 50%;
+            background: linear-gradient(135deg, var(--light-orange), var(--dark-orange));
+            color: #1a0d00; font-weight: 800; font-size: 0.92rem;
+            display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+        }
+        .profile-dropdown .dropdown-header .info { overflow: hidden; }
+        .profile-dropdown .dropdown-header .info .dname {
+            font-weight: 700; font-size: 0.88rem; color: #f6efe5;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .profile-dropdown .dropdown-header .info .drole {
+            font-size: 0.72rem; color: var(--text-muted);
+        }
+        .dropdown-divider { border-color: rgba(240,140,0,0.10) !important; margin: 0.3rem 0 !important; }
+        .profile-dropdown .dropdown-item {
+            color: rgba(246,239,229,0.7) !important;
+            font-size: 0.82rem; font-weight: 500;
+            border-radius: 8px; padding: 0.55rem 0.9rem !important;
+            display: flex; align-items: center; gap: 0.6rem;
+            transition: background 0.15s, color 0.15s;
+        }
+        .profile-dropdown .dropdown-item:hover {
+            background: rgba(240,140,0,0.09) !important;
+            color: #fff !important;
+        }
+        .profile-dropdown .dropdown-item.text-danger { color: #e87070 !important; }
+        .profile-dropdown .dropdown-item.text-danger:hover { background: rgba(232,112,112,0.09) !important; }
+        .profile-dropdown .dropdown-item i { width: 14px; text-align: center; opacity: 0.7; }
 
         /* ----- Footer (matches login) ----- */
         .footer {
@@ -141,8 +229,7 @@
         /* ----- Mobile responsiveness (shell-wide) ----- */
         @media (max-width: 768px) {
             .navbar { padding: 0.4rem 0; }
-            .navbar-brand .wordmark { display: none; }   /* prevent brand overflow on small screens */
-            .navbar-brand img { height: 34px; }
+            .navbar-brand .wordmark { display: none; }
             .navbar-collapse {
                 background: rgba(11, 9, 7, 0.96); border: 1px solid var(--border-color);
                 border-radius: 14px; margin-top: 0.6rem; padding: 0.5rem;
@@ -165,25 +252,58 @@
 </head>
 
 <body>
+<?php
+$_nav_username = htmlspecialchars($user->username ?? 'User', ENT_QUOTES, 'UTF-8');
+$_nav_display  = strpos($_nav_username, '@') !== false ? substr($_nav_username, 0, strpos($_nav_username, '@')) : $_nav_username;
+$_nav_initial  = strtoupper(substr($_nav_display, 0, 1));
+?>
 <header>
-    <nav class="navbar navbar-expand-md navbar-dark bg-dark">
+    <nav class="navbar navbar-expand-lg navbar-dark">
         <div class="container-fluid">
-            <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarText" aria-controls="navbarText" aria-expanded="false" aria-label="Toggle navigation">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <a class="navbar-brand mr-5 pt-0" href="?p=dashboard">
-                <img src="assets/img/bridge_logo.png" class="img-responsive" height="40"/>
+            <a class="navbar-brand" href="?p=dashboard">
                 <span class="wordmark">File<b>Bridge</b></span>
             </a>
-            <div class="collapse navbar-collapse" id="navbarText">
-                <ul class="navbar-nav mr-auto">
-                    <?php
-                    echo Menu::getUserMenu($user_id, $active);
-                    ?>
+            <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarMain"
+                    aria-controls="navbarMain" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarMain">
+                <ul class="navbar-nav mr-auto align-items-center">
+                    <?php echo Menu::getUserMenu($user_id, $active); ?>
                 </ul>
-                <span class="navbar-text">
-                    <a class="mr-3" href="./login.php?logout"><i class="fa fa fa-sign-out">&nbsp;</i>Logout</a>
-                </span>
+                <div class="d-flex align-items-center">
+                    <div class="nav-divider d-none d-lg-block"></div>
+                    <!-- Profile dropdown -->
+                    <div class="dropdown profile-dropdown">
+                        <a href="#" class="dropdown-toggle" id="profileMenu"
+                           data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                            <div class="profile-avatar"><?= $_nav_initial ?></div>
+                            <span class="profile-name d-none d-lg-block"><?= $_nav_display ?></span>
+                            <i class="fas fa-chevron-down profile-chevron d-none d-lg-inline"></i>
+                        </a>
+                        <div class="dropdown-menu dropdown-menu-right" aria-labelledby="profileMenu">
+                            <!-- User info header -->
+                            <div class="dropdown-header">
+                                <div class="avatar-lg"><?= $_nav_initial ?></div>
+                                <div class="info">
+                                    <div class="dname"><?= $_nav_display ?></div>
+                                    <div class="drole">Signed in</div>
+                                </div>
+                            </div>
+                            <div class="dropdown-divider"></div>
+                            <a class="dropdown-item" href="?p=settings">
+                                <i class="fas fa-cog"></i> Settings
+                            </a>
+                            <a class="dropdown-item" href="?p=backup">
+                                <i class="fas fa-database"></i> Backup
+                            </a>
+                            <div class="dropdown-divider"></div>
+                            <a class="dropdown-item text-danger" href="./login.php?logout">
+                                <i class="fas fa-sign-out-alt"></i> Sign out
+                            </a>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </nav>
