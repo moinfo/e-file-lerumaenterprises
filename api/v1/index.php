@@ -10,6 +10,11 @@
 error_reporting(E_ALL);
 ini_set('display_errors', 0);
 
+// Buffer all output so stray whitespace/BOM from an included file (config,
+// secrets, endpoint) cannot corrupt the JSON body, and so a fatal mid-request
+// produces a clean JSON 500 (via the shutdown handler) instead of a bare space.
+ob_start();
+
 // Set JSON header
 header('Content-Type: application/json');
 
@@ -33,28 +38,64 @@ require_once 'helpers/role_checker.php';
 
 // API Response Helper Class
 class ApiResponse {
+    // Set once a real response has been emitted, so the shutdown handler
+    // doesn't double-send if a fatal occurs after we've already replied.
+    public static $responded = false;
+
     public static function success($data = [], $message = 'Success', $code = 200) {
-        http_response_code($code);
-        echo json_encode([
-            'success' => true,
-            'message' => $message,
-            'data' => $data,
-            'timestamp' => date('Y-m-d H:i:s')
-        ], JSON_PRETTY_PRINT);
-        exit();
+        self::send($code, [
+            'success'   => true,
+            'message'   => $message,
+            'data'      => $data,
+            'timestamp' => date('Y-m-d H:i:s'),
+        ]);
     }
 
     public static function error($message = 'Error', $code = 400, $errors = []) {
+        self::send($code, [
+            'success'   => false,
+            'message'   => $message,
+            'errors'    => $errors,
+            'timestamp' => date('Y-m-d H:i:s'),
+        ]);
+    }
+
+    private static function send($code, array $payload) {
+        // Discard any buffered output (stray whitespace/BOM from includes) so
+        // the body is exactly the JSON we intend to send.
+        while (ob_get_level() > 0) { ob_end_clean(); }
+        self::$responded = true;
         http_response_code($code);
-        echo json_encode([
-            'success' => false,
-            'message' => $message,
-            'errors' => $errors,
-            'timestamp' => date('Y-m-d H:i:s')
-        ], JSON_PRETTY_PRINT);
+        header('Content-Type: application/json');
+        echo json_encode($payload, JSON_PRETTY_PRINT);
         exit();
     }
 }
+
+// Convert any fatal/parse error that escapes the try/catch into a clean JSON 500
+// instead of a half-sent response (the classic "bare space" body). The real error
+// is always logged; the message is only echoed outside production.
+register_shutdown_function(function () {
+    $err = error_get_last();
+    $fatal = [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR, E_USER_ERROR];
+    if (!$err || !in_array($err['type'], $fatal, true)) {
+        return;
+    }
+    error_log('api/v1 fatal: ' . $err['message'] . ' in ' . $err['file'] . ':' . $err['line']);
+    if (ApiResponse::$responded) {
+        return;
+    }
+    while (ob_get_level() > 0) { ob_end_clean(); }
+    http_response_code(500);
+    header('Content-Type: application/json');
+    $isProd = defined('APP_ENV') && APP_ENV === 'production';
+    echo json_encode([
+        'success'   => false,
+        'message'   => 'Internal server error',
+        'errors'    => $isProd ? [] : [$err['message'] . ' in ' . $err['file'] . ':' . $err['line']],
+        'timestamp' => date('Y-m-d H:i:s'),
+    ], JSON_PRETTY_PRINT);
+});
 
 // API Authentication Class
 class ApiAuth {
@@ -257,6 +298,13 @@ try {
         default:
             ApiResponse::error('Endpoint not found', 404);
     }
-} catch (Exception $e) {
-    ApiResponse::error('Internal server error: ' . $e->getMessage(), 500);
+} catch (\Throwable $e) {
+    // \Throwable (not just Exception) so PHP Error/TypeError/ParseError from an
+    // endpoint are caught and returned as JSON rather than fataling silently.
+    error_log('api/v1 exception: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
+    $isProd = defined('APP_ENV') && APP_ENV === 'production';
+    ApiResponse::error(
+        $isProd ? 'Internal server error' : ('Internal server error: ' . $e->getMessage()),
+        500
+    );
 }

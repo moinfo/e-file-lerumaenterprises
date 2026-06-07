@@ -28,12 +28,13 @@ function handleIngest(string $method, ?string $id, ?string $action, ?array $inpu
 
         case 'file':
             if (empty($action)) ApiResponse::error('File reference ID required in path: /ingest/file/{ref_id}', 400);
-            match ($method) {
-                'GET'    => _ingestGetFile($system, $csm, $action),
-                'DELETE' => _ingestDeleteFile($system, $csm, $action),
-                'PATCH'  => _ingestPatchFile($system, $csm, $action, $input ?? []),
-                default  => ApiResponse::error('Method not allowed', 405),
-            };
+            // switch (not match) for PHP 7.x compatibility on shared hosting
+            switch ($method) {
+                case 'GET':    _ingestGetFile($system, $csm, $action); break;
+                case 'DELETE': _ingestDeleteFile($system, $csm, $action); break;
+                case 'PATCH':  _ingestPatchFile($system, $csm, $action, $input ?? []); break;
+                default:       ApiResponse::error('Method not allowed', 405);
+            }
             break;
 
         case 'detail':
