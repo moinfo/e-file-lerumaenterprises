@@ -77,19 +77,27 @@ if ($requestedPath[0] === '/') {
         $candidates[] = _normalizePath($siteRoot . '/' . $req2);
     }
 
-    // Candidate 3: strip traversal + allfiles/ prefix, resolve against FILES_PATH
-    $stripped    = preg_replace('#(\.\.[\\/])+#', '', $req);
-    $stripped    = ltrim(preg_replace('#^allfiles[\\/]#i', '', $stripped), '/');
-    $candidates[] = rtrim($baseDir, '/') . '/' . $stripped;
+    // Candidate 3: strip traversal + allfiles/ prefix, resolve against FILES_PATH.
+    // MUST be normalized like the others — a single regex pass can leave a "../"
+    // behind (e.g. "....//" → "../"), so we collapse it with _normalizePath
+    // before the containment check rather than trusting the stripped string.
+    $stripped     = preg_replace('#(\.\.[\\/])+#', '', $req);
+    $stripped     = ltrim(preg_replace('#^allfiles[\\/]#i', '', $stripped), '/');
+    $candidates[] = _normalizePath(rtrim($baseDir, '/') . '/' . $stripped);
 }
 
-// Pick the first candidate that is (a) within an allowed base AND (b) exists on disk
+// Pick the first candidate that is (a) fully normalized & within an allowed base,
+// (b) exists on disk, AND (c) whose realpath (if resolvable) is STILL within the
+// base — the realpath pass catches symlink escapes that string normalization can't.
 $filePath = null;
 foreach ($candidates as $c) {
-    if ($withinAllowed($c) && file_exists($c) && is_readable($c)) {
-        $filePath = $c;
-        break;
-    }
+    $norm = _normalizePath($c);                 // defensive: normalize every candidate
+    if (!$withinAllowed($norm)) continue;
+    if (!file_exists($norm) || !is_readable($norm)) continue;
+    $real = realpath($norm);                    // may be false under open_basedir
+    if ($real !== false && !$withinAllowed($real)) continue;  // symlink escape — reject
+    $filePath = $norm;
+    break;
 }
 
 // ── Security gate ────────────────────────────────────────────────────────────
