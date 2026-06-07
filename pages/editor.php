@@ -6,8 +6,6 @@
     ];
     $db = new DB();
 
-    $file_path = "../allfiles/pf-archives/";
-    $pf_files = array_slice(scandir($file_path), 2);
     $folders = $db->fetch('archive_document_folders');
 //    $sub_folders = Utility::query('SELECT adsf.*,adf.name AS folder_name FROM archive_document_sub_folders adsf
 //    JOIN archive_document_folders adf ON(adf.id = adsf.archive_document_folder_id)');
