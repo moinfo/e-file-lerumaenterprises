@@ -86,7 +86,7 @@ if (APP_ENV === 'production') {
     define('DB_USERNAME', $__secret('db_user', 'EFILE_DB_USER', 'lerumaen_muddy'));
     define('DB_NAME',     $__secret('db_name', 'EFILE_DB_NAME', 'lerumaen_filebridge'));
     define('BASE_URL',    'https://e-file.lerumaenterprises.co.tz/');
-    define('FILES_PATH',  '/home/lerumaen/public_html/allfiles/');
+    define('FILES_PATH',  '/home/lerumaen/allfiles/');
 } else {
     define('DB_USERNAME', $__secret('db_user', 'EFILE_DB_USER', 'root'));
     define('DB_NAME',     $__secret('db_name', 'EFILE_DB_NAME', 'lerumaen_filebridges'));
