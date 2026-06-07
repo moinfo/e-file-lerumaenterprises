@@ -49,13 +49,28 @@ if (!file_exists($realPath) || !is_readable($realPath)) {
 $fileSize = filesize($realPath);
 $fileName = basename($realPath);
 
-// Determine MIME type
-$finfo = finfo_open(FILEINFO_MIME_TYPE);
-$mimeType = finfo_file($finfo, $realPath);
-finfo_close($finfo);
-
+// Determine MIME type — extension map first (reliable on all hosts),
+// finfo as fallback for unlisted types.
+$extMap = [
+    'pdf'  => 'application/pdf',
+    'jpg'  => 'image/jpeg',
+    'jpeg' => 'image/jpeg',
+    'png'  => 'image/png',
+    'gif'  => 'image/gif',
+    'webp' => 'image/webp',
+    'doc'  => 'application/msword',
+    'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'xls'  => 'application/vnd.ms-excel',
+    'xlsx' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'txt'  => 'text/plain',
+    'csv'  => 'text/csv',
+];
+$ext      = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
+$mimeType = $extMap[$ext] ?? null;
 if (!$mimeType) {
-    $mimeType = 'application/octet-stream';
+    $finfo    = finfo_open(FILEINFO_MIME_TYPE);
+    $mimeType = finfo_file($finfo, $realPath) ?: 'application/octet-stream';
+    finfo_close($finfo);
 }
 
 // Set headers for file serving
