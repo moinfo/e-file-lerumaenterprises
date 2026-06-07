@@ -49,5 +49,6 @@ if (!$row) {
     exit('Not found');
 }
 
-header('Location: file_viewer.php?file=' . urlencode(basename($row['path'])));
+// serve_file.php handles FILES_PATH resolution for all file locations.
+header('Location: serve_file.php?file=' . urlencode($row['path']));
 exit;

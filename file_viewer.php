@@ -26,14 +26,16 @@ if (empty($file)) {
     exit('File not specified');
 }
 
-// Sanitize file path to prevent directory traversal attacks
-$file = basename($file);
+// Sanitize — strip traversal sequences; treat as relative to FILES_PATH
+$file = ltrim(str_replace(['../', '..' . DIRECTORY_SEPARATOR], '', $file), '/\\');
+$file = str_replace('allfiles/', '', $file);
 
-// Build the actual file path (allfiles is outside project folder)
-$filePath = '../allfiles/pf-archives/' . $file;
+$filePath = rtrim(FILES_PATH, '/') . '/' . $file;
+$realPath = realpath($filePath);
+$realBase = realpath(rtrim(FILES_PATH, '/')) . DIRECTORY_SEPARATOR;
 
-// Check if file exists
-if (!file_exists($filePath)) {
+if ($realPath === false || strncmp($realPath, $realBase, strlen($realBase)) !== 0
+    || !is_readable($realPath)) {
     http_response_code(404);
     exit('File not found');
 }
@@ -54,10 +56,10 @@ $contentType = isset($contentTypes[$ext]) ? $contentTypes[$ext] : 'application/o
 
 // Set headers
 header('Content-Type: ' . $contentType);
-header('Content-Length: ' . filesize($filePath));
-header('Content-Disposition: inline; filename="' . $file . '"');
+header('Content-Length: ' . filesize($realPath));
+header('Content-Disposition: inline; filename="' . basename($realPath) . '"');
 header('Cache-Control: public, max-age=86400');
 
 // Output file
-readfile($filePath);
+readfile($realPath);
 exit;
