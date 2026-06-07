@@ -13,6 +13,8 @@ class ConnectedSystem {
             "SELECT cs.*, COUNT(efr.id) AS file_count
              FROM connected_systems cs
              LEFT JOIN external_file_refs efr ON efr.connected_system_id = cs.id
+                 AND efr.status = 'active'
+                 AND EXISTS (SELECT 1 FROM archives a WHERE a.id = efr.archive_id AND a.completed = 0)
              GROUP BY cs.id ORDER BY cs.name",
             'SELECT'
         );
@@ -46,11 +48,11 @@ class ConnectedSystem {
         return ['id' => $id, 'api_key' => $apiKey];
     }
 
-    public function update(int $id, string $name, string $description, ?int $subFolderId, ?int $docTypeId, string $extensions, int $maxMb): void {
+    public function update(int $id, string $name, string $description, ?int $subFolderId, ?int $docTypeId, string $extensions, int $maxMb, ?string $callbackUrl = null): void {
         $this->db->query(
-            "UPDATE connected_systems SET name=?, description=?, default_sub_folder_id=?, default_document_type_id=?, allowed_extensions=?, max_file_size_mb=? WHERE id=?",
+            "UPDATE connected_systems SET name=?, description=?, default_sub_folder_id=?, default_document_type_id=?, allowed_extensions=?, max_file_size_mb=?, callback_url=? WHERE id=?",
             'UPDATE', null,
-            [$name, $description, $subFolderId, $docTypeId, $extensions, $maxMb, $id]
+            [$name, $description, $subFolderId, $docTypeId, $extensions, $maxMb, $callbackUrl, $id]
         );
     }
 
@@ -92,18 +94,20 @@ class ConnectedSystem {
         return (bool) $row;
     }
 
-    public function createRef(int $systemId, string $extRefId, int $archiveId): int {
+    public function createRef(int $systemId, string $extRefId, int $archiveId, ?string $localId = null): int {
         return (int) $this->db->query(
-            "INSERT INTO external_file_refs (connected_system_id, external_ref_id, archive_id, status) VALUES (?, ?, ?, 'active')",
-            'INSERT', null, [$systemId, $extRefId, $archiveId]
+            "INSERT INTO external_file_refs (connected_system_id, external_ref_id, local_id, archive_id, status) VALUES (?, ?, ?, ?, 'active')",
+            'INSERT', null, [$systemId, $extRefId, $localId, $archiveId]
         );
     }
 
     public function findRef(int $systemId, string $extRefId): ?array {
         $row = $this->db->query(
-            "SELECT efr.*, a.name AS archive_name, a.path, a.completed, a.description, a.document_date
+            "SELECT efr.*, a.name AS archive_name, a.path, a.completed, a.description, a.document_date,
+                    cs.callback_url, cs.api_key AS system_api_key
              FROM external_file_refs efr
              JOIN archives a ON a.id = efr.archive_id
+             JOIN connected_systems cs ON cs.id = efr.connected_system_id
              WHERE efr.connected_system_id = ? AND efr.external_ref_id = ?",
             'SELECT', true, [$systemId, $extRefId]
         );

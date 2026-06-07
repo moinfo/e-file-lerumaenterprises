@@ -90,6 +90,17 @@ function uploadFiles($data) {
     return json_encode($return_arr);
 }
 
+    // Return a path relative to FILES_PATH so serve_file.php can locate it.
+    // Ingest API stores absolute paths; web uploads store "../allfiles/..." relative paths.
+    function _normalizeArchivePath(string $storedPath): string {
+        $base = rtrim(FILES_PATH, '/\\');
+        if (strncmp($storedPath, $base, strlen($base)) === 0) {
+            // Absolute path starting with FILES_PATH — strip that prefix
+            return ltrim(substr($storedPath, strlen($base)), '/\\');
+        }
+        return $storedPath;
+    }
+
     function nextFile($data) {
         $direction  = isset($data['direction']) ? $data['direction'] : "next";
         $current_user_id = isset($_SESSION[SESSION_NAME]) ? $_SESSION[SESSION_NAME]['user_id'] : null;
@@ -118,7 +129,7 @@ function uploadFiles($data) {
                     "sub_folder_id" => $file_res['sub_folder_id'],
                     "description" => $file_res['description'],
                     "duplicate" => $file_res['duplicate'],
-                    "url" => ltrim($file_res['path'], '')
+                    "url" => _normalizeArchivePath($file_res['path'])
                 ];
                 $upd = $db->query("UPDATE users SET current_file = ? WHERE id = ?", "UPDATE", false, [$new_id, $current_user_id]);
                 return $file_data;

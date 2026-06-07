@@ -13,36 +13,26 @@ if (empty($requestedPath)) {
     die('No file specified');
 }
 
-// Clean the path to prevent directory traversal
-$requestedPath = str_replace(['../', '..\\'], '', $requestedPath);
-
 // Use FILES_PATH from config
 $baseDir = FILES_PATH;
 
-// Remove allfiles from path if present (it's already in baseDir)
+// Strip leading slashes/backslashes so callers cannot supply an absolute path,
+// then remove any traversal sequences. All paths are treated as relative to FILES_PATH.
+$requestedPath = ltrim($requestedPath, '/\\');
+$requestedPath = str_replace(['../', '..\\'  ], '', $requestedPath);
+
+// Remove the "allfiles/" prefix that web-uploaded files include in their stored path
+// (FILES_PATH already points to the allfiles directory).
 $cleanPath = str_replace('allfiles/', '', $requestedPath);
-$filePath = $baseDir . $cleanPath;
+$filePath  = rtrim($baseDir, '/') . '/' . ltrim($cleanPath, '/');
 
-// Debug mode - remove in production after testing
-if (isset($_GET['debug'])) {
-    header('Content-Type: text/plain');
-    echo "Document Root: $documentRoot\n";
-    echo "Is Production: " . ($isProduction ? 'YES' : 'NO') . "\n";
-    echo "Base Dir: $baseDir\n";
-    echo "Requested Path: $requestedPath\n";
-    echo "Clean Path: $cleanPath\n";
-    echo "File Path: $filePath\n";
-    echo "File Exists: " . (file_exists($filePath) ? 'YES' : 'NO') . "\n";
-    echo "Real Path: " . (realpath($filePath) ?: 'FALSE') . "\n";
-    echo "Real Base Dir: " . (realpath($baseDir) ?: 'FALSE') . "\n";
-    exit;
-}
+// Security check: the resolved path must be strictly inside FILES_PATH.
+// Use a trailing separator to prevent the "/allfiles-other/" bypass that
+// a plain strpos/str_starts_with without the separator would allow.
+$realPath    = realpath($filePath);
+$realBaseDir = realpath(rtrim($baseDir, '/')) . DIRECTORY_SEPARATOR;
 
-// Security check: verify file is within allowed directory
-$realPath = realpath($filePath);
-$realBaseDir = realpath($baseDir);
-
-if ($realPath === false || strpos($realPath, $realBaseDir) !== 0) {
+if ($realPath === false || strncmp($realPath, $realBaseDir, strlen($realBaseDir)) !== 0) {
     http_response_code(403);
     error_log("Security violation: attempted to access file outside allowed directory - $filePath");
     die('Access denied');

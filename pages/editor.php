@@ -15,6 +15,37 @@
     $user_id = $user_id = $_SESSION[SESSION_NAME]['user_id'];
     $user = new User($user_id);
 
+    // If arriving from received_files with a specific archive to edit,
+    // position current_file to one before it so the first auto-load lands on it.
+    // Access check: if sub_folder_id is set, verify the user's group has rights to it.
+    // Files from external systems (sub_folder_id IS NULL) are uncategorised and accessible
+    // to any editor user — that is the purpose of the editor for received files.
+    $auto_open_archive = 0;
+    if (!empty($_GET['archive_id'])) {
+        $target_id = (int) $_GET['archive_id'];
+        if ($target_id > 0) {
+            $exists = $db->query(
+                "SELECT a.id FROM archives a
+                 WHERE a.id = ? AND a.completed = 0
+                   AND (
+                       a.sub_folder_id IS NULL
+                       OR EXISTS (
+                           SELECT 1 FROM config_folder_access_rights cfar
+                           JOIN user_group_relation ugr ON ugr.user_group = cfar.user_group
+                           WHERE cfar.folder_sub_id = a.sub_folder_id
+                             AND cfar.type = 'SUB FOLDER'
+                             AND ugr.user = ?
+                       )
+                   )",
+                'SELECT', true, [$target_id, $user_id]
+            );
+            if ($exists) {
+                $db->query("UPDATE users SET current_file = ? WHERE id = ?", 'UPDATE', false, [$target_id - 1, $user_id]);
+                $auto_open_archive = 1;
+            }
+        }
+    }
+
 $user_group_relation = Utility::query("SELECT user_group FROM user_group_relation WHERE user = $user_id",'SELECT','ROW');
 $user_group_id = $user_group_relation['user_group'];
 $sub_folders = Utility::query("SELECT adf.*,adfs.name AS folder_name  FROM config_folder_access_rights cfar
@@ -279,6 +310,10 @@ $document_types = Utility::query("SELECT dt.* FROM config_folder_access_rights c
     function previousFile() {
             loadFile('previous');
     }
+
+    <?php if ($auto_open_archive): ?>
+    $(document).ready(function() { loadFile('next'); });
+    <?php endif; ?>
 
     function loadFile(direction) {
         console.log('loading file...');

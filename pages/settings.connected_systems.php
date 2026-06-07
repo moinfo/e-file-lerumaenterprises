@@ -32,10 +32,11 @@ function csFormFields(array $subFolders, array $docTypes, array $sys = []): stri
         $sel     = isset($sys['default_document_type_id']) && (int)$dt['id'] === (int)$sys['default_document_type_id'] ? ' selected' : '';
         $dtOpts .= '<option value="' . (int)$dt['id'] . '"' . $sel . '>' . htmlspecialchars($dt['name']) . '</option>';
     }
-    $name    = htmlspecialchars($sys['name'] ?? '');
-    $desc    = htmlspecialchars($sys['description'] ?? '');
-    $exts    = htmlspecialchars($sys['allowed_extensions'] ?? 'pdf,jpg,jpeg,png,docx,xlsx');
-    $maxMb   = (int)($sys['max_file_size_mb'] ?? 25);
+    $name        = htmlspecialchars($sys['name'] ?? '');
+    $desc        = htmlspecialchars($sys['description'] ?? '');
+    $exts        = htmlspecialchars($sys['allowed_extensions'] ?? 'pdf,jpg,jpeg,png,docx,xlsx');
+    $maxMb       = (int)($sys['max_file_size_mb'] ?? 25);
+    $callbackUrl = htmlspecialchars($sys['callback_url'] ?? '');
     return '
     <div class="form-group">
         <label>System Name *</label>
@@ -44,6 +45,10 @@ function csFormFields(array $subFolders, array $docTypes, array $sys = []): stri
     <div class="form-group">
         <label>Description</label>
         <textarea name="description" class="form-control" rows="2" placeholder="What system is this?">' . $desc . '</textarea>
+    </div>
+    <div class="form-group">
+        <label>Callback URL <small class="text-muted">(base URL of the source system for fetching record details)</small></label>
+        <input type="url" name="callback_url" class="form-control" value="' . $callbackUrl . '" placeholder="e.g. https://mainstore.example.com">
     </div>
     <div class="form-row">
         <div class="form-group col-md-6">
@@ -103,6 +108,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         case 'update':
             if ($sysId) {
+                $cbUrl = trim($_POST['callback_url'] ?? '');
+                if ($cbUrl !== '' && !preg_match('#^https?://#i', $cbUrl)) {
+                    $cbUrl = '';
+                }
                 $csm->update(
                     $sysId,
                     trim($_POST['name'] ?? ''),
@@ -110,7 +119,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     (int)($_POST['default_sub_folder_id'] ?? 0) ?: null,
                     (int)($_POST['default_document_type_id'] ?? 0) ?: null,
                     preg_replace('/[^a-z0-9,.]/', '', strtolower(trim($_POST['allowed_extensions'] ?? 'pdf'))),
-                    max(1, min(500, (int)($_POST['max_file_size_mb'] ?? 25)))
+                    max(1, min(500, (int)($_POST['max_file_size_mb'] ?? 25))),
+                    $cbUrl ?: null
                 );
                 $_SESSION['cs_flash'] = ['type' => 'success', 'message' => 'System updated.'];
             }

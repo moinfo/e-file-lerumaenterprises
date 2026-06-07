@@ -5,10 +5,13 @@
  * Auth:  X-API-Key: <key>  (from connected_systems.api_key, NOT a user Bearer token)
  *
  * Routes (all under /api/v1/ingest/):
- *   POST   upload          — receive a file, return efile_id
- *   GET    file/{ref_id}   — get status of an ingested file by external ref
- *   DELETE file/{ref_id}   — soft-delete if not yet completed
- *   GET    stats           — counts per status for this system
+ *   POST   upload              — receive a file, return efile_id
+ *   GET    file/{ref_id}       — get status of an ingested file by external ref
+ *   PATCH  file/{ref_id}       — update local_id or description on an existing ref
+ *   DELETE file/{ref_id}       — soft-delete if not yet completed
+ *   GET    detail/{ref_id}     — fetch live record details from the source system
+ *   GET    serve/{ref_id}      — stream the actual file (for embedding in external systems)
+ *   GET    stats               — counts per status for this system
  */
 
 require_once '../../models/ConnectedSystem.php';
@@ -28,8 +31,15 @@ function handleIngest(string $method, ?string $id, ?string $action, ?array $inpu
             match ($method) {
                 'GET'    => _ingestGetFile($system, $csm, $action),
                 'DELETE' => _ingestDeleteFile($system, $csm, $action),
+                'PATCH'  => _ingestPatchFile($system, $csm, $action, $input ?? []),
                 default  => ApiResponse::error('Method not allowed', 405),
             };
+            break;
+
+        case 'detail':
+            if ($method !== 'GET') ApiResponse::error('Method not allowed', 405);
+            if (empty($action)) ApiResponse::error('File reference ID required: /ingest/detail/{ref_id}', 400);
+            _ingestDetail($system, $csm, $action);
             break;
 
         case 'stats':
@@ -37,8 +47,14 @@ function handleIngest(string $method, ?string $id, ?string $action, ?array $inpu
             _ingestStats($system, $csm);
             break;
 
+        case 'serve':
+            if ($method !== 'GET') ApiResponse::error('Method not allowed', 405);
+            if (empty($action)) ApiResponse::error('File reference ID required: /ingest/serve/{ref_id}', 400);
+            _ingestServeFile($system, $csm, $action);
+            break;
+
         default:
-            ApiResponse::error('Unknown ingest path. Available: upload | file/{ref_id} | stats', 404);
+            ApiResponse::error('Unknown ingest path. Available: upload | file/{ref_id} | detail/{ref_id} | serve/{ref_id} | stats', 404);
     }
 }
 
@@ -67,71 +83,53 @@ function _ingestAuth(): array {
 // ── Upload ──────────────────────────────────────────────────────────────────
 
 function _ingestUpload(array $system, ConnectedSystem $csm): void {
-    // Validate file upload
     if (!isset($_FILES['file']) || $_FILES['file']['error'] !== UPLOAD_ERR_OK) {
         $code = $_FILES['file']['error'] ?? UPLOAD_ERR_NO_FILE;
         ApiResponse::error("File upload failed (PHP error code {$code})", 400);
     }
     $file = $_FILES['file'];
 
-    // Extension check
     $ext     = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
     $allowed = array_map('trim', explode(',', $system['allowed_extensions']));
     if (!in_array($ext, $allowed, true)) {
-        ApiResponse::error(
-            "File type .{$ext} not permitted for this system. Allowed: " . implode(', ', $allowed),
-            400
-        );
+        ApiResponse::error("File type .{$ext} not permitted. Allowed: " . implode(', ', $allowed), 400);
     }
 
-    // Size check
     $maxBytes = (int) $system['max_file_size_mb'] * 1024 * 1024;
     if ($file['size'] > $maxBytes) {
         ApiResponse::error("File exceeds maximum size of {$system['max_file_size_mb']}MB", 400);
     }
 
-    // Required: external ref ID (mainstore's own ID for the file)
     $extRefId = trim($_POST['external_ref_id'] ?? '');
     if ($extRefId === '') {
-        ApiResponse::error('external_ref_id is required (your system\'s unique ID for this file)', 400);
+        ApiResponse::error('external_ref_id is required', 400);
     }
     if ($csm->refExists((int) $system['id'], $extRefId)) {
-        ApiResponse::error("A file with external_ref_id '{$extRefId}' already exists for this system. Use GET /file/{ref} to check its status.", 409);
+        ApiResponse::error("A file with external_ref_id '{$extRefId}' already exists. Use GET /file/{ref} to check its status.", 409);
     }
 
-    // Folder / document type — POST param overrides system default
-    $subFolderId = (int) ($_POST['sub_folder_id'] ?? $system['default_sub_folder_id'] ?? 0);
-    $docTypeId   = (int) ($_POST['document_type_id'] ?? $system['default_document_type_id'] ?? 0);
-
-    if (!$subFolderId) {
-        ApiResponse::error('sub_folder_id is required (or set a default on the connected system in Settings)', 400);
-    }
-    if (!$docTypeId) {
-        ApiResponse::error('document_type_id is required (or set a default on the connected system in Settings)', 400);
-    }
-
-    // Optional metadata
     $description = trim($_POST['description'] ?? '');
     $rawDate     = trim($_POST['document_date'] ?? '');
     $docDate     = preg_match('/^\d{4}-\d{2}-\d{2}$/', $rawDate) ? $rawDate : date('Y-m-d');
+    $localId     = trim($_POST['local_id'] ?? '') ?: null;
 
-    // Store file with a collision-proof name
     $safeName   = preg_replace('/[^a-zA-Z0-9._-]/', '_', basename($file['name']));
     $storedName = time() . '_' . $system['slug'] . '_' . bin2hex(random_bytes(6)) . '.' . $ext;
-    $destPath   = rtrim(FILES_PATH, '/') . DIRECTORY_SEPARATOR . $storedName;
+    $destPath   = rtrim(FILES_PATH, '/') . DIRECTORY_SEPARATOR . 'pf-archives' . DIRECTORY_SEPARATOR . $storedName;
 
     if (!move_uploaded_file($file['tmp_name'], $destPath)) {
-        ApiResponse::error('Failed to save uploaded file to storage. Check FILES_PATH permissions.', 500);
+        ApiResponse::error('Failed to save uploaded file. Check FILES_PATH permissions.', 500);
     }
 
-    // Create archive record
     $db          = new DB();
     $displayName = $description ?: $safeName;
+    // document_type and sub_folder_id are intentionally left NULL —
+    // the e-file editor user categorises received files themselves.
     $archiveId   = (int) $db->query(
-        "INSERT INTO archives (name, path, description, document_type, sub_folder_id, completed, document_date, created_at)
-         VALUES (?, ?, ?, ?, ?, 0, ?, NOW())",
+        "INSERT INTO archives (name, path, description, completed, document_date)
+         VALUES (?, ?, ?, 0, ?)",
         'INSERT', null,
-        [$displayName, $destPath, $description, $docTypeId, $subFolderId, $docDate]
+        [$displayName, $destPath, $description, $docDate]
     );
 
     if (!$archiveId) {
@@ -139,8 +137,7 @@ function _ingestUpload(array $system, ConnectedSystem $csm): void {
         ApiResponse::error('Failed to create archive record', 500);
     }
 
-    // Link the archive to the external ref
-    $csm->createRef((int) $system['id'], $extRefId, $archiveId);
+    $csm->createRef((int) $system['id'], $extRefId, $archiveId, $localId);
 
     ApiResponse::success([
         'efile_id'        => $archiveId,
@@ -148,8 +145,6 @@ function _ingestUpload(array $system, ConnectedSystem $csm): void {
         'system'          => $system['name'],
         'status'          => 'active',
         'editable'        => true,
-        'sub_folder_id'   => $subFolderId,
-        'document_type_id'=> $docTypeId,
     ], 'File received and archived successfully', 201);
 }
 
@@ -165,6 +160,7 @@ function _ingestGetFile(array $system, ConnectedSystem $csm, string $extRefId): 
     ApiResponse::success([
         'efile_id'        => (int) $ref['archive_id'],
         'external_ref_id' => $ref['external_ref_id'],
+        'local_id'        => $ref['local_id'],
         'status'          => $ref['status'],
         'completed'       => $completed,
         'editable'        => $ref['status'] === 'active' && !$completed,
@@ -184,10 +180,9 @@ function _ingestDeleteFile(array $system, ConnectedSystem $csm, string $extRefId
         ApiResponse::error("No file with external_ref_id '{$extRefId}' found for this system", 404);
     }
 
-    // Completed files are permanent — they cannot be deleted externally
     if ((int) $ref['completed'] === 1) {
         ApiResponse::error(
-            'This file has been completed/archived and cannot be deleted via the external API. Contact an administrator.',
+            'This file has been completed and cannot be deleted via the external API.',
             403
         );
     }
@@ -200,12 +195,112 @@ function _ingestDeleteFile(array $system, ConnectedSystem $csm, string $extRefId
         ApiResponse::error('Delete operation failed', 500);
     }
 
+    // Remove the archive record and its file from disk — the source system owns
+    // this document, so when they retract it we clean up fully.
+    $db = new DB();
+    $db->query("DELETE FROM archives WHERE id = ?", 'DELETE', null, [(int) $ref['archive_id']]);
+    if (!empty($ref['path']) && file_exists($ref['path'])) {
+        @unlink($ref['path']);
+    }
+
     ApiResponse::success([
         'external_ref_id' => $extRefId,
         'efile_id'        => (int) $ref['archive_id'],
         'deleted'         => true,
-        'note'            => 'The file record is preserved for audit. Only the external reference is marked deleted.',
     ], 'File deleted successfully');
+}
+
+// ── Patch file metadata ──────────────────────────────────────────────────────
+
+function _ingestPatchFile(array $system, ConnectedSystem $csm, string $extRefId, array $input): void {
+    $ref = $csm->findRef((int) $system['id'], $extRefId);
+    if (!$ref) {
+        ApiResponse::error("No file with external_ref_id '{$extRefId}' found for this system", 404);
+    }
+
+    if ($ref['status'] === 'deleted_by_source') {
+        ApiResponse::error('Cannot update a deleted file reference', 410);
+    }
+
+    $updates = [];
+    if (array_key_exists('local_id', $input)) {
+        $updates['local_id'] = trim($input['local_id']) ?: null;
+    }
+    if (isset($input['description'])) {
+        $updates['description'] = trim($input['description']);
+    }
+
+    if (empty($updates)) {
+        ApiResponse::error('No updatable fields provided. Supported: local_id, description', 400);
+    }
+
+    $db         = new DB();
+    $setClauses = implode(', ', array_map(fn($k) => "{$k} = ?", array_keys($updates)));
+    $params     = array_values($updates);
+    $params[]   = (int) $system['id'];
+    $params[]   = $extRefId;
+
+    $db->query(
+        "UPDATE external_file_refs SET {$setClauses}, updated_at = NOW() WHERE connected_system_id = ? AND external_ref_id = ?",
+        'UPDATE', null, $params
+    );
+
+    ApiResponse::success([
+        'external_ref_id' => $extRefId,
+        'updated'         => array_keys($updates),
+    ], 'File reference updated');
+}
+
+// ── Detail (proxy to source system) ─────────────────────────────────────────
+
+function _ingestDetail(array $system, ConnectedSystem $csm, string $extRefId): void {
+    $ref = $csm->findRef((int) $system['id'], $extRefId);
+    if (!$ref) {
+        ApiResponse::error("No file with external_ref_id '{$extRefId}' found", 404);
+    }
+
+    if (empty($ref['local_id'])) {
+        ApiResponse::error('No local_id linked to this file — source system details unavailable', 404);
+    }
+
+    if (empty($system['callback_url'])) {
+        ApiResponse::error('This connected system has no callback_url configured', 503);
+    }
+
+    $callbackUrl = rtrim($system['callback_url'], '/') . '/efile_callback/expense/' . rawurlencode($ref['local_id']);
+
+    $cbHost   = parse_url($callbackUrl, PHP_URL_HOST);
+    $cbScheme = parse_url($callbackUrl, PHP_URL_SCHEME);
+    $isLoop   = in_array($cbHost, ['localhost', '127.0.0.1', '::1'], true);
+
+    $curl = curl_init($callbackUrl);
+    curl_setopt_array($curl, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT        => 10,
+        CURLOPT_HTTPHEADER     => [
+            'X-API-Key: ' . $system['api_key'],
+            'Accept: application/json',
+        ],
+        CURLOPT_SSL_VERIFYPEER => !($isLoop && $cbScheme === 'http'),
+        CURLOPT_SSL_VERIFYHOST => ($isLoop && $cbScheme === 'http') ? 0 : 2,
+    ]);
+
+    $raw      = curl_exec($curl);
+    $httpCode = curl_getinfo($curl, CURLINFO_HTTP_CODE);
+    $curlErr  = curl_errno($curl) ? curl_error($curl) : null;
+    curl_close($curl);
+
+    if ($curlErr) {
+        ApiResponse::error('Could not reach source system: ' . $curlErr, 502);
+    }
+
+    $json = json_decode($raw, true);
+    if ($httpCode !== 200 || empty($json['success'])) {
+        $msg = $json['message'] ?? ('HTTP ' . $httpCode);
+        ApiResponse::error('Source system returned an error: ' . $msg, 502);
+    }
+
+    ApiResponse::success($json['data'], 'Details fetched from ' . $system['name']);
 }
 
 // ── Stats ────────────────────────────────────────────────────────────────────
@@ -231,4 +326,48 @@ function _ingestStats(array $system, ConnectedSystem $csm): void {
         'files'   => $stats,
         'total'   => array_sum($stats),
     ]);
+}
+
+// ── Serve file ───────────────────────────────────────────────────────────────
+
+function _ingestServeFile(array $system, ConnectedSystem $csm, string $extRefId): void {
+    $ref = $csm->findRef((int) $system['id'], $extRefId);
+    if (!$ref) {
+        http_response_code(404); exit('File not found');
+    }
+
+    if ($ref['status'] === 'deleted_by_source') {
+        http_response_code(410); exit('File has been deleted');
+    }
+
+    $filePath = $ref['path'];
+    if (!file_exists($filePath)) {
+        $filePath = rtrim(FILES_PATH, '/') . '/pf-archives/' . basename($ref['path']);
+    }
+    if (!file_exists($filePath)) {
+        http_response_code(404); exit('File not found on disk');
+    }
+
+    $real = realpath($filePath);
+    $base = realpath(rtrim(FILES_PATH, DIRECTORY_SEPARATOR));
+    if ($real === false || $base === false || strncmp($real, $base . DIRECTORY_SEPARATOR, strlen($base) + 1) !== 0) {
+        http_response_code(403); exit('Access denied');
+    }
+
+    $ext   = strtolower(pathinfo($real, PATHINFO_EXTENSION));
+    $types = [
+        'pdf'  => 'application/pdf',
+        'jpg'  => 'image/jpeg', 'jpeg' => 'image/jpeg',
+        'png'  => 'image/png',  'gif'  => 'image/gif',
+        'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'xlsx' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    ];
+    $mime  = $types[$ext] ?? 'application/octet-stream';
+
+    header('Content-Type: ' . $mime);
+    header('Content-Length: ' . filesize($real));
+    header('Content-Disposition: inline; filename="' . basename($real) . '"');
+    header('Cache-Control: private, max-age=300');
+    readfile($real);
+    exit;
 }
