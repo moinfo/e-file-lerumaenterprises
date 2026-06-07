@@ -14,25 +14,39 @@ if (!isset($_SESSION[SESSION_NAME]['user_id'])) {
     exit;
 }
 
-$ref = isset($_GET['ref']) ? trim($_GET['ref']) : '';
+$ref     = isset($_GET['ref']) ? trim($_GET['ref']) : '';
+$user_id = (int) $_SESSION[SESSION_NAME]['user_id'];
+
 if ($ref === '') {
     http_response_code(400);
     exit('No ref specified');
 }
 
 $db  = new DB();
+
+// Scope to sub-folders the user's groups (including delegations) can access.
+// Returns 404 either way — no 403 — to avoid ref enumeration.
 $row = $db->query(
-    "SELECT a.path, efr.archive_id
+    "SELECT a.path
        FROM external_file_refs efr
        JOIN archives a ON a.id = efr.archive_id
       WHERE efr.external_ref_id = ?
+        AND (
+              a.sub_folder_id IS NULL
+              OR a.sub_folder_id IN (
+                  SELECT cfar.folder_sub_id
+                    FROM config_folder_access_rights cfar
+                    JOIN user_group_relation ugr ON ugr.group_id = cfar.user_group
+                   WHERE ugr.user_id = ?
+              )
+            )
       LIMIT 1",
-    'ROW', true, [$ref]
+    'ROW', true, [$ref, $user_id]
 );
 
 if (!$row) {
     http_response_code(404);
-    exit('Document not found for ref: ' . htmlspecialchars($ref, ENT_QUOTES, 'UTF-8'));
+    exit('Not found');
 }
 
 header('Location: file_viewer.php?file=' . urlencode(basename($row['path'])));
