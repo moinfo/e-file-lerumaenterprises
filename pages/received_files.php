@@ -181,9 +181,10 @@ $files = is_array($files) ? $files : [];
                         $isPending   = $f['status'] === 'active' && !(int)$f['completed'];
                         $isCompleted = (int)$f['completed'] === 1;
                         $isDeleted   = $f['status'] === 'deleted_by_source';
-                        // Pass the full stored path (not just basename) so the viewer
-                        // can locate files in pf-archives/ and other subdirectories.
-                        $fileUrl     = 'file_viewer.php?file=' . urlencode($f['path']);
+                        // View via view_by_ref.php: login-required and folder-scoped
+                        // (looks up by external_ref_id, applies group access, serves
+                        // through serve_file.php). Avoids trusting a client-supplied path.
+                        $fileUrl     = 'view_by_ref.php?ref=' . urlencode($f['external_ref_id']);
                     ?>
                     <tr>
                         <td class="ps-4">
