@@ -181,7 +181,9 @@ $files = is_array($files) ? $files : [];
                         $isPending   = $f['status'] === 'active' && !(int)$f['completed'];
                         $isCompleted = (int)$f['completed'] === 1;
                         $isDeleted   = $f['status'] === 'deleted_by_source';
-                        $fileUrl     = 'file_viewer.php?file=' . urlencode(basename($f['path']));
+                        // Pass the full stored path (not just basename) so the viewer
+                        // can locate files in pf-archives/ and other subdirectories.
+                        $fileUrl     = 'file_viewer.php?file=' . urlencode($f['path']);
                     ?>
                     <tr>
                         <td class="ps-4">
