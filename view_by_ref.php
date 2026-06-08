@@ -5,6 +5,12 @@
  * Requires e-file login. Redirects to file_viewer.php for inline preview.
  */
 if (session_status() === PHP_SESSION_NONE) session_start();
+
+// Buffer output from the includes (config/secrets/Autoload) so a stray
+// whitespace/BOM byte can't pre-send output and silently kill the Location
+// redirect below — which otherwise leaves the user on a blank page.
+ob_start();
+
 require_once './config.php';
 require_once './models/DB.php';
 require_once './models/Autoload.php';
@@ -18,6 +24,7 @@ $ref     = isset($_GET['ref']) ? trim($_GET['ref']) : '';
 $user_id = (int) $_SESSION[SESSION_NAME]['user_id'];
 
 if ($ref === '') {
+    while (ob_get_level() > 0) { ob_end_clean(); }
     http_response_code(400);
     exit('No ref specified');
 }
@@ -55,9 +62,13 @@ $row = $db->query(
 );
 
 if (!$row) {
+    while (ob_get_level() > 0) { ob_end_clean(); }
     http_response_code(404);
     exit('Not found');
 }
+
+// Discard any buffered include output so the redirect header is accepted.
+while (ob_get_level() > 0) { ob_end_clean(); }
 
 // serve_file.php handles FILES_PATH resolution for all file locations.
 header('Location: serve_file.php?file=' . urlencode($row['path']));
