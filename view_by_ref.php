@@ -24,8 +24,14 @@ if ($ref === '') {
 
 $db  = new DB();
 
-// Scope to sub-folders the user's groups (including delegations) can access.
-// Returns 404 either way — no 403 — to avoid ref enumeration.
+// Scope to sub-folders the user's group(s) can access. Uncategorised archives
+// (sub_folder_id NULL/0 — e.g. freshly ingested files not yet sorted) are
+// visible to any logged-in user. Returns 404 either way — no 403 — to avoid
+// ref enumeration.
+//
+// NOTE: the user_group_relation table columns are `user` and `user_group`
+// (NOT user_id/group_id), and config_folder_access_rights uses `user_group`
+// and `folder_sub_id` — matching pages/folders.php and pages/document_types.php.
 $row = $db->query(
     "SELECT a.path
        FROM external_file_refs efr
@@ -33,11 +39,15 @@ $row = $db->query(
       WHERE efr.external_ref_id = ?
         AND (
               a.sub_folder_id IS NULL
+              OR a.sub_folder_id = 0
               OR a.sub_folder_id IN (
                   SELECT cfar.folder_sub_id
                     FROM config_folder_access_rights cfar
-                    JOIN user_group_relation ugr ON ugr.group_id = cfar.user_group
-                   WHERE ugr.user_id = ?
+                   WHERE cfar.user_group IN (
+                       SELECT ugr.user_group
+                         FROM user_group_relation ugr
+                        WHERE ugr.user = ?
+                   )
               )
             )
       LIMIT 1",
