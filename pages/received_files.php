@@ -246,7 +246,8 @@ $files = is_array($files) ? $files : [];
                         </td>
                         <td><span class="badge bg-secondary"><?= htmlspecialchars($f['system_name']) ?></span></td>
                         <td>
-                            <a href="#" class="rf-ref-link" title="View source record"
+                            <a class="rf-ref-link" title="View source record" role="button" tabindex="0"
+                               style="cursor:pointer;text-decoration:underline;"
                                data-ref="<?= htmlspecialchars($f['external_ref_id'], ENT_QUOTES) ?>"
                                data-system-id="<?= (int)$f['system_id'] ?>"
                                data-system-name="<?= htmlspecialchars($f['system_name'], ENT_QUOTES) ?>">
