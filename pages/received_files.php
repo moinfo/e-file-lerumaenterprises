@@ -185,13 +185,15 @@ $files = is_array($files) ? $files : [];
         </div>
         <div>
             <label class="d-block small text-muted mb-1">From</label>
-            <input type="date" name="from" value="<?= htmlspecialchars($filterFrom, ENT_QUOTES) ?>"
-                   class="form-control form-control-sm" style="background:#1a1a1a;color:inherit;border-color:rgba(255,255,255,.15)">
+            <input type="text" name="from" value="<?= htmlspecialchars($filterFrom, ENT_QUOTES) ?>"
+                   class="form-control form-control-sm datepicker" autocomplete="off" placeholder="yyyy-mm-dd"
+                   style="background:#1a1a1a;color:inherit;border-color:rgba(255,255,255,.15)">
         </div>
         <div>
             <label class="d-block small text-muted mb-1">To</label>
-            <input type="date" name="to" value="<?= htmlspecialchars($filterTo, ENT_QUOTES) ?>"
-                   class="form-control form-control-sm" style="background:#1a1a1a;color:inherit;border-color:rgba(255,255,255,.15)">
+            <input type="text" name="to" value="<?= htmlspecialchars($filterTo, ENT_QUOTES) ?>"
+                   class="form-control form-control-sm datepicker" autocomplete="off" placeholder="yyyy-mm-dd"
+                   style="background:#1a1a1a;color:inherit;border-color:rgba(255,255,255,.15)">
         </div>
         <div>
             <button type="submit" class="btn btn-sm btn-warning"><i class="fas fa-filter me-1"></i>Apply</button>
