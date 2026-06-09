@@ -11,8 +11,13 @@ require_once 'models/DB.php';
 require_once 'models/ConnectedSystem.php';
 
 // ── Session guard ────────────────────────────────────────────────────────────
-session_name(SESSION_NAME);
-session_start();
+// NOTE: do NOT call session_name(SESSION_NAME) — SESSION_NAME is the ARRAY KEY
+// inside $_SESSION, not the cookie name. The app starts sessions with the default
+// cookie, so a plain session_start() shares the logged-in session (matching
+// view_by_ref.php / serve_file.php / file_viewer.php).
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
 header('Content-Type: application/json');
 
