@@ -245,7 +245,14 @@ $files = is_array($files) ? $files : [];
                             <?php endif; ?>
                         </td>
                         <td><span class="badge bg-secondary"><?= htmlspecialchars($f['system_name']) ?></span></td>
-                        <td><code class="small"><?= htmlspecialchars($f['external_ref_id']) ?></code></td>
+                        <td>
+                            <a href="#" class="rf-ref-link" title="View source record"
+                               data-ref="<?= htmlspecialchars($f['external_ref_id'], ENT_QUOTES) ?>"
+                               data-system-id="<?= (int)$f['system_id'] ?>"
+                               data-system-name="<?= htmlspecialchars($f['system_name'], ENT_QUOTES) ?>">
+                                <code class="small"><?= htmlspecialchars($f['external_ref_id']) ?></code>
+                            </a>
+                        </td>
                         <td><small><?= date('d M Y H:i', strtotime($f['created_at'])) ?></small></td>
                         <td>
                             <?php if ($isDeleted): ?>
@@ -280,4 +287,74 @@ $files = is_array($files) ? $files : [];
         </div>
     </div>
 </div>
+
+<!-- Source-record detail modal (self-contained; no Bootstrap JS dependency) -->
+<div id="rf-detail-modal" style="display:none;position:fixed;inset:0;z-index:1080;background:rgba(0,0,0,.6);">
+    <div style="max-width:660px;margin:6vh auto;background:#1a1a1a;border:1px solid rgba(255,255,255,.12);border-radius:12px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.5);">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid rgba(255,255,255,.1);">
+            <h5 id="rf-detail-title" style="margin:0;font-weight:600;font-size:1rem;">Source Record</h5>
+            <button type="button" id="rf-detail-close" class="btn btn-sm btn-outline-secondary" aria-label="Close">&times;</button>
+        </div>
+        <div id="rf-detail-body" style="padding:20px;max-height:70vh;overflow:auto;"></div>
+    </div>
+</div>
+<script>
+(function () {
+    var modal = document.getElementById('rf-detail-modal');
+    var body  = document.getElementById('rf-detail-body');
+    var title = document.getElementById('rf-detail-title');
+    function esc(s) { var d = document.createElement('div'); d.textContent = String(s); return d.innerHTML; }
+    function close() { modal.style.display = 'none'; body.innerHTML = ''; }
+    document.getElementById('rf-detail-close').addEventListener('click', close);
+    modal.addEventListener('click', function (e) { if (e.target === modal) close(); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });
+
+    function row(k, vHtml) {
+        return '<tr><th class="text-muted" style="width:38%;font-weight:500;text-transform:capitalize;vertical-align:top;">'
+             + esc(String(k).replace(/_/g, ' ')) + '</th><td>' + vHtml + '</td></tr>';
+    }
+    function render(data) {
+        if (!data || typeof data !== 'object') return '<div class="text-muted">No details available.</div>';
+        var rows = '';
+        Object.keys(data).forEach(function (k) {
+            var v = data[k];
+            if (v === null || v === undefined || v === '') return;
+            if (Array.isArray(v)) {
+                var lines = v.map(function (it) {
+                    var t = (it && typeof it === 'object')
+                        ? Object.keys(it).map(function (kk) { return esc(kk) + ': ' + esc(it[kk]); }).join(' · ')
+                        : esc(it);
+                    return '<div style="padding:5px 0;border-bottom:1px solid rgba(255,255,255,.06);">' + t + '</div>';
+                }).join('');
+                rows += row(k, lines || '<span class="text-muted">—</span>');
+            } else if (typeof v === 'object') {
+                var inner = Object.keys(v).map(function (kk) { return esc(kk) + ': ' + esc(v[kk]); }).join('<br>');
+                rows += row(k, inner);
+            } else {
+                rows += row(k, esc(v));
+            }
+        });
+        return '<table class="table table-sm mb-0" style="color:inherit;">' + rows + '</table>';
+    }
+
+    document.querySelectorAll('.rf-ref-link').forEach(function (a) {
+        a.addEventListener('click', function (e) {
+            e.preventDefault();
+            var ref = this.getAttribute('data-ref');
+            var sid = this.getAttribute('data-system-id');
+            var sname = this.getAttribute('data-system-name') || 'Source';
+            title.textContent = sname + ' — ' + ref;
+            body.innerHTML = '<div class="text-center py-4 text-muted"><i class="fa fa-spinner fa-spin fa-2x"></i><div class="mt-2">Loading source record…</div></div>';
+            modal.style.display = 'block';
+            fetch('received_detail.php?ref=' + encodeURIComponent(ref) + '&system_id=' + encodeURIComponent(sid), { credentials: 'same-origin' })
+                .then(function (r) { return r.json(); })
+                .then(function (res) {
+                    if (res && res.success) { body.innerHTML = render(res.data); }
+                    else { body.innerHTML = '<div class="alert alert-warning mb-0">' + esc((res && res.message) || 'Details unavailable.') + '</div>'; }
+                })
+                .catch(function () { body.innerHTML = '<div class="alert alert-danger mb-0">Failed to load details.</div>'; });
+        });
+    });
+})();
+</script>
 

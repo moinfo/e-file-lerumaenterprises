@@ -49,12 +49,6 @@ if (!$row) {
     exit;
 }
 
-if (empty($row['local_id'])) {
-    http_response_code(404);
-    echo json_encode(['success' => false, 'message' => 'No source record linked yet — details not available']);
-    exit;
-}
-
 if (empty($row['callback_url'])) {
     http_response_code(503);
     echo json_encode(['success' => false, 'message' => 'Source system has no callback URL configured']);
@@ -62,8 +56,11 @@ if (empty($row['callback_url'])) {
 }
 
 // ── Proxy the request to the connected system ─────────────────────────────────
-// The connected system authenticates us using the same API key it registered with
-$callbackUrl = rtrim($row['callback_url'], '/') . '/efile_callback/expense/' . rawurlencode($row['local_id']);
+// Pass the external_ref_id; each system resolves it to its source record via its
+// own stored mapping (efile_attachments for Laravel apps, the efile_ref column on
+// receivings/expenses for mainstore). Entity type need not be parsed here.
+// The connected system authenticates us using the same API key it registered with.
+$callbackUrl = rtrim($row['callback_url'], '/') . '/efile_callback/' . rawurlencode($row['external_ref_id']);
 
 $callbackHost  = parse_url($callbackUrl, PHP_URL_HOST);
 $isLoopback    = in_array($callbackHost, ['localhost', '127.0.0.1', '::1'], true);

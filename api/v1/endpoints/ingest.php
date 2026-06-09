@@ -264,15 +264,13 @@ function _ingestDetail(array $system, ConnectedSystem $csm, string $extRefId): v
         ApiResponse::error("No file with external_ref_id '{$extRefId}' found", 404);
     }
 
-    if (empty($ref['local_id'])) {
-        ApiResponse::error('No local_id linked to this file — source system details unavailable', 404);
-    }
-
     if (empty($system['callback_url'])) {
         ApiResponse::error('This connected system has no callback_url configured', 503);
     }
 
-    $callbackUrl = rtrim($system['callback_url'], '/') . '/efile_callback/expense/' . rawurlencode($ref['local_id']);
+    // Pass the external_ref_id; the source system resolves it to its record via
+    // its own mapping (entity type need not be parsed here).
+    $callbackUrl = rtrim($system['callback_url'], '/') . '/efile_callback/' . rawurlencode($extRefId);
 
     $cbHost   = parse_url($callbackUrl, PHP_URL_HOST);
     $cbScheme = parse_url($callbackUrl, PHP_URL_SCHEME);
