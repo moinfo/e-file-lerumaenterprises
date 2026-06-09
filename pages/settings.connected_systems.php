@@ -579,6 +579,10 @@ function buildEditFields(sys) {
         <label>Description</label>
         <textarea name="description" class="form-control" rows="2">${esc(sys.description||'')}</textarea>
     </div>
+    <div class="form-group">
+        <label>Callback URL <small class="text-muted">(base URL of the source system — enables "view source record" on Ref ID click)</small></label>
+        <input type="url" name="callback_url" class="form-control" value="${esc(sys.callback_url||'')}" placeholder="e.g. https://mainstore.example.com">
+    </div>
     <div class="form-row">
         <div class="form-group col-md-6">
             <label>Default Sub-Folder</label>
