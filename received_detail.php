@@ -40,7 +40,7 @@ $trace['session_status']  = session_status();                 // 2 = PHP_SESSION
 $trace['session_id']      = session_id() !== '' ? 'present' : 'none';
 $trace['session_key_set'] = isset($_SESSION[SESSION_NAME]);
 $trace['user_id_present'] = $loggedIn;
-$trace['headers_sent']    = headers_sent($hf, $hl) ? ($hf . ':' . $hl) : false;
+$trace['headers_sent']    = headers_sent();   // boolean only — no file path leak
 $trace['ob_level']        = ob_get_level();
 
 if (!$loggedIn) {
