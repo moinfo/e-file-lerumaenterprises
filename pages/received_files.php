@@ -8,6 +8,13 @@ $csm = new ConnectedSystem();
 $systems       = $csm->all();
 $filterSystem  = isset($_GET['system_id']) ? (int) $_GET['system_id'] : null;
 $filterStatus  = $_GET['status'] ?? 'pending';
+// Date range (on the Received date, efr.created_at). Validate YYYY-MM-DD.
+$validDate     = fn($d) => preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $d) ? (string) $d : '';
+$filterFrom    = $validDate($_GET['from'] ?? '');
+$filterTo      = $validDate($_GET['to'] ?? '');
+// Reusable query-string fragment so cards/tabs preserve the date range.
+$datePart      = ($filterFrom ? '&from=' . urlencode($filterFrom) : '')
+               . ($filterTo   ? '&to='   . urlencode($filterTo)   : '');
 
 // Build file list query
 $whereParts = [];
@@ -26,6 +33,8 @@ if ($filterStatus !== 'all') {
         $whereParts[] = 'efr.status = "deleted_by_source"';
     }
 }
+if ($filterFrom) { $whereParts[] = 'DATE(efr.created_at) >= ?'; $params[] = $filterFrom; }
+if ($filterTo)   { $whereParts[] = 'DATE(efr.created_at) <= ?'; $params[] = $filterTo; }
 
 $where = $whereParts ? 'WHERE ' . implode(' AND ', $whereParts) : '';
 
@@ -119,7 +128,7 @@ $files = is_array($files) ? $files : [];
     <?php if (!empty($systems)): ?>
     <div class="row g-3 mb-4">
         <div class="col-auto">
-            <a href="?p=received_files<?= $filterStatus !== 'all' ? '&status='.$filterStatus : '' ?>"
+            <a href="?p=received_files<?= $filterStatus !== 'all' ? '&status='.$filterStatus : '' ?><?= $datePart ?>"
                class="rf-system-card <?= !$filterSystem ? 'active' : '' ?>" style="min-width:130px">
                 <div class="sys-count"><?= array_sum(array_column($systems, 'file_count')) ?></div>
                 <div class="sys-name">All Systems</div>
@@ -128,7 +137,7 @@ $files = is_array($files) ? $files : [];
         </div>
         <?php foreach ($systems as $sys): ?>
         <div class="col-auto">
-            <a href="?p=received_files&system_id=<?= $sys['id'] ?><?= $filterStatus !== 'all' ? '&status='.$filterStatus : '' ?>"
+            <a href="?p=received_files&system_id=<?= $sys['id'] ?><?= $filterStatus !== 'all' ? '&status='.$filterStatus : '' ?><?= $datePart ?>"
                class="rf-system-card <?= $filterSystem === (int)$sys['id'] ? 'active' : '' ?>" style="min-width:130px">
                 <div class="sys-count"><?= (int)$sys['file_count'] ?></div>
                 <div class="sys-name"><?= htmlspecialchars($sys['name']) ?></div>
@@ -151,9 +160,42 @@ $files = is_array($files) ? $files : [];
         foreach ($tabs as $val => $label):
             $active = $filterStatus === $val ? 'btn-warning' : 'btn-outline-secondary';
         ?>
-        <a href="<?= $base ?>&status=<?= $val ?>" class="btn btn-sm <?= $active ?>"><?= $label ?></a>
+        <a href="<?= $base ?>&status=<?= $val ?><?= $datePart ?>" class="btn btn-sm <?= $active ?>"><?= $label ?></a>
         <?php endforeach; ?>
     </div>
+
+    <!-- System + date-range filter bar -->
+    <form method="get" action="" class="d-flex flex-wrap align-items-end gap-2 mb-3">
+        <input type="hidden" name="p" value="received_files">
+        <input type="hidden" name="status" value="<?= htmlspecialchars($filterStatus, ENT_QUOTES) ?>">
+        <div>
+            <label class="d-block small text-muted mb-1">System</label>
+            <select name="system_id" class="form-select form-select-sm" style="min-width:170px;background:#1a1a1a;color:inherit;border-color:rgba(255,255,255,.15)">
+                <option value="">All systems</option>
+                <?php foreach ($systems as $sys): ?>
+                <option value="<?= (int)$sys['id'] ?>" <?= $filterSystem === (int)$sys['id'] ? 'selected' : '' ?>>
+                    <?= htmlspecialchars($sys['name']) ?>
+                </option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+        <div>
+            <label class="d-block small text-muted mb-1">From</label>
+            <input type="date" name="from" value="<?= htmlspecialchars($filterFrom, ENT_QUOTES) ?>"
+                   class="form-control form-control-sm" style="background:#1a1a1a;color:inherit;border-color:rgba(255,255,255,.15)">
+        </div>
+        <div>
+            <label class="d-block small text-muted mb-1">To</label>
+            <input type="date" name="to" value="<?= htmlspecialchars($filterTo, ENT_QUOTES) ?>"
+                   class="form-control form-control-sm" style="background:#1a1a1a;color:inherit;border-color:rgba(255,255,255,.15)">
+        </div>
+        <div>
+            <button type="submit" class="btn btn-sm btn-warning"><i class="fas fa-filter me-1"></i>Apply</button>
+            <?php if ($filterSystem || $filterFrom || $filterTo): ?>
+            <a href="?p=received_files<?= $filterStatus !== 'all' ? '&status='.$filterStatus : '' ?>" class="btn btn-sm btn-outline-secondary">Clear</a>
+            <?php endif; ?>
+        </div>
+    </form>
 
     <!-- Files table -->
     <div class="card" style="background:var(--card-bg,#1a1a1a);border:1px solid rgba(255,255,255,0.08);">
