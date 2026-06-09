@@ -7,7 +7,11 @@ $csm = new ConnectedSystem();
 // ── Data ─────────────────────────────────────────────────────────────────────
 $systems       = $csm->all();
 $filterSystem  = isset($_GET['system_id']) ? (int) $_GET['system_id'] : null;
+// Whitelist the status so it's safe to interpolate into hrefs/queries everywhere.
 $filterStatus  = $_GET['status'] ?? 'pending';
+if (!in_array($filterStatus, ['all', 'pending', 'completed', 'deleted'], true)) {
+    $filterStatus = 'pending';
+}
 // Date range (on the Received date, efr.created_at). Validate YYYY-MM-DD.
 $validDate     = fn($d) => preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $d) ? (string) $d : '';
 $filterFrom    = $validDate($_GET['from'] ?? '');
