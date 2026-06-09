@@ -25,6 +25,17 @@ $document_types_query = "SELECT dt.*, COUNT(a.document_type) AS total_document_t
 $document_types = $db->query($document_types_query, 'SELECT');
 
 $total_docs = $unedited_files + $completed_files;
+
+// Total storage size of archived files (archives.size is stored in bytes).
+$size_rows  = $db->query("SELECT COALESCE(SUM(size),0) AS total_size FROM archives", 'SELECT');
+$total_size = (is_array($size_rows) && isset($size_rows[0]['total_size'])) ? (float) $size_rows[0]['total_size'] : 0;
+$fmtSize = function ($bytes) {
+    $units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    $i = 0;
+    while ($bytes >= 1024 && $i < count($units) - 1) { $bytes /= 1024; $i++; }
+    return round($bytes, ($i > 0 && $bytes < 100) ? 1 : 0) . ' ' . $units[$i];
+};
+$total_size_h = $fmtSize($total_size);
 ?>
 
 <style>
@@ -156,6 +167,7 @@ $total_docs = $unedited_files + $completed_files;
         <div class="dash-chips">
             <span class="dash-chip"><i class="fa fa-database"></i> <?= number_format($total_docs) ?> archived</span>
             <span class="dash-chip"><i class="fa fa-folder"></i> <?= number_format(count($folders)) ?> folders</span>
+            <span class="dash-chip"><i class="fa fa-hdd"></i> <?= $total_size_h ?> stored</span>
         </div>
     </div>
 
